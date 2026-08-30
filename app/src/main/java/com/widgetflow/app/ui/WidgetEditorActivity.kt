@@ -74,8 +74,6 @@ class WidgetEditorActivity : AppCompatActivity() {
     private var dragY = 0f
     private var dragL = 0
     private var dragT = 0
-    /** 是否处于长按拖动中（长按元素后进入，避免与页面滚动冲突） */
-    private var dragActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -547,6 +545,9 @@ class WidgetEditorActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             )
             box.tag = i
+            box.isClickable = true
+            // 元素本体只响应点击选中，不拦截触摸 → 页面可以正常滚动
+            box.setOnClickListener { selectElement(i) }
 
             val tv = TextView(this)
             tv.layoutParams = FrameLayout.LayoutParams(
@@ -560,6 +561,15 @@ class WidgetEditorActivity : AppCompatActivity() {
             if (i == sel) tv.setBackgroundColor(0x264CAF50)
             box.addView(tv)
 
+            // 顶部移动手柄：选中元素时显示，拖动它来移动位置
+            val moveHandle = View(this)
+            moveHandle.layoutParams = FrameLayout.LayoutParams(
+                22.dp(), 22.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            )
+            moveHandle.background = ContextCompat.getDrawable(this, R.drawable.bg_move_handle)
+            moveHandle.visibility = if (i == sel) View.VISIBLE else View.GONE
+            box.addView(moveHandle)
+
             val handle = View(this)
             handle.layoutParams = FrameLayout.LayoutParams(
                 16.dp(), 16.dp(), Gravity.BOTTOM or Gravity.END
@@ -569,7 +579,7 @@ class WidgetEditorActivity : AppCompatActivity() {
             handle.visibility = if (i == sel) View.VISIBLE else View.GONE
             box.addView(handle)
 
-            attachDrag(box, el, i)
+            attachMove(moveHandle, box, el)
             attachResize(handle, tv, el)
             canvas.addView(box)
             positionView(box, tv, el)
@@ -592,57 +602,40 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    /** 元素拖动：点按选中，长按进入拖动（不吞掉触摸，页面可正常滚动） */
-    private fun attachDrag(box: View, el: Element, index: Int) {
-        box.setOnLongClickListener {
-            selectElement(index, rebuild = false)
-            dragActive = true
-            box.parent?.requestDisallowInterceptTouchEvent(true)
-            true
-        }
-        box.setOnTouchListener { v, event ->
+    /** 移动元素：拖动选中元素顶部的手柄（仅手柄拦截触摸，不影响页面滚动） */
+    private fun attachMove(handle: View, box: View, el: Element) {
+        handle.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    selectElement(index, rebuild = false)
                     dragX = event.rawX
                     dragY = event.rawY
-                    val lp = v.layoutParams as FrameLayout.LayoutParams
+                    val lp = box.layoutParams as FrameLayout.LayoutParams
                     dragL = lp.leftMargin
                     dragT = lp.topMargin
-                    dragActive = false
-                    // 不消费 DOWN：让外层页面可以正常滚动；长按后再拖动元素
-                    false
+                    box.parent?.requestDisallowInterceptTouchEvent(true)
+                    true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!dragActive) return@setOnTouchListener false
-                    val lp = v.layoutParams as FrameLayout.LayoutParams
+                    val lp = box.layoutParams as FrameLayout.LayoutParams
                     val w = binding.step4.canvas.width
                     val h = binding.step4.canvas.height
                     lp.leftMargin = (dragL + (event.rawX - dragX).toInt())
-                        .coerceIn(0, (w - v.width).coerceAtLeast(0))
+                        .coerceIn(0, (w - box.width).coerceAtLeast(0))
                     lp.topMargin = (dragT + (event.rawY - dragY).toInt())
-                        .coerceIn(0, (h - v.height).coerceAtLeast(0))
-                    v.requestLayout()
+                        .coerceIn(0, (h - box.height).coerceAtLeast(0))
+                    box.requestLayout()
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (dragActive) {
-                        val w = binding.step4.canvas.width
-                        val h = binding.step4.canvas.height
-                        if (w > 0 && h > 0) {
-                            val lp = v.layoutParams as FrameLayout.LayoutParams
-                            el.x = lp.leftMargin * 100f / w
-                            el.y = lp.topMargin * 100f / h
-                        }
-                        dragActive = false
-                        updatePanel()
+                    val w = binding.step4.canvas.width
+                    val h = binding.step4.canvas.height
+                    if (w > 0 && h > 0) {
+                        val lp = box.layoutParams as FrameLayout.LayoutParams
+                        el.x = lp.leftMargin * 100f / w
+                        el.y = lp.topMargin * 100f / h
                     }
-                    v.performClick()
+                    handle.performClick()
                     true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    dragActive = false
-                    false
                 }
                 else -> false
             }
@@ -695,11 +688,14 @@ class WidgetEditorActivity : AppCompatActivity() {
         for (i in 0 until canvas.childCount) {
             val box = canvas.getChildAt(i) as? FrameLayout ?: continue
             val tag = box.tag as? Int ?: continue
+            val visible = tag == sel
             (box.getChildAt(0) as? TextView)?.let { tv ->
-                tv.setBackgroundColor(if (tag == sel) 0x264CAF50 else Color.TRANSPARENT)
+                tv.setBackgroundColor(if (visible) 0x264CAF50 else Color.TRANSPARENT)
             }
-            val handle = box.getChildAt(1) ?: continue
-            handle.visibility = if (tag == sel) View.VISIBLE else View.GONE
+            // 子控件 1 = 移动手柄，2 = 调整大小手柄：随选中状态显示/隐藏
+            for (k in 1 until box.childCount) {
+                box.getChildAt(k).visibility = if (visible) View.VISIBLE else View.GONE
+            }
         }
     }
 
