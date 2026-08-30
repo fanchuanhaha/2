@@ -6,7 +6,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.os.Build
 import android.util.TypedValue
 import android.view.View
@@ -128,21 +131,24 @@ object WidgetUpdater {
         }
         val rv = RemoteViews(context.packageName, R.layout.widget_flow)
 
-        // 自定义背景色（空 = 使用主题默认的圆角背景 drawable）
-        if (widget.bgColor.isNotBlank()) {
-            try {
-                rv.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor(widget.bgColor))
-            } catch (e: IllegalArgumentException) {
-                // 非法颜色值：保持默认背景
-            }
-        }
-
         val opts = awm.getAppWidgetOptions(appWidgetId)
         val density = context.resources.displayMetrics.density
         val widthDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).coerceAtLeast(60)
         val heightDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).coerceAtLeast(40)
         val wPx = (widthDp * density).toInt()
         val hPx = (heightDp * density).toInt()
+
+        // 自定义背景色/圆角：渲染圆角位图铺满；否则恢复默认圆角背景
+        if (widget.bgColor.isNotBlank() || widget.cornerRadius >= 0) {
+            applyCustomBg(context, rv, widget, wPx, hPx, density)
+        } else {
+            rv.setInt(R.id.widget_bg_img, "setVisibility", View.GONE)
+            rv.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg)
+            rv.setViewPadding(
+                R.id.widget_root, (8 * density).toInt(), (8 * density).toInt(),
+                (8 * density).toInt(), (8 * density).toInt()
+            )
+        }
 
         elementIds.forEach { rv.setInt(it, "setVisibility", View.GONE) }
 
@@ -217,11 +223,48 @@ object WidgetUpdater {
         awm.updateAppWidget(appWidgetId, rv)
     }
 
+    /** 应用自定义圆角背景：渲染圆角位图铺满组件（支持任意颜色 + 任意圆角） */
+    private fun applyCustomBg(
+        context: Context, rv: RemoteViews, widget: WidgetConfig, wPx: Int, hPx: Int, density: Float
+    ) {
+        val color = try {
+            Color.parseColor(widget.bgColor)
+        } catch (e: IllegalArgumentException) {
+            context.getColor(R.color.widget_bg_color)
+        }
+        val radiusDp = if (widget.cornerRadius >= 0) widget.cornerRadius else 20
+        val radiusPx = (radiusDp * density).toInt().coerceAtLeast(0)
+        val bmp = makeBgBitmap(wPx, hPx, color, radiusPx)
+        rv.setImageViewBitmap(R.id.widget_bg_img, bmp)
+        rv.setInt(R.id.widget_bg_img, "setVisibility", View.VISIBLE)
+        // 去掉默认圆角背景，改为铺满的自定义圆角位图
+        rv.setInt(R.id.widget_root, "setBackgroundColor", Color.TRANSPARENT)
+        rv.setViewPadding(R.id.widget_root, 0, 0, 0, 0)
+    }
+
+    private fun makeBgBitmap(w: Int, h: Int, color: Int, radiusPx: Int): Bitmap {
+        val bmp = Bitmap.createBitmap(w.coerceAtLeast(1), h.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+        c.drawRoundRect(
+            0f, 0f, w.toFloat(), h.toFloat(),
+            radiusPx.toFloat(), radiusPx.toFloat(), p
+        )
+        return bmp
+    }
+
     /** 未关联小部件时的占位渲染 */
     fun renderPlaceholder(context: Context, appWidgetId: Int) {
         val awm = AppWidgetManager.getInstance(context)
         val rv = RemoteViews(context.packageName, R.layout.widget_flow)
+        val density = context.resources.displayMetrics.density
         elementIds.forEach { rv.setInt(it, "setVisibility", View.GONE) }
+        rv.setInt(R.id.widget_bg_img, "setVisibility", View.GONE)
+        rv.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg)
+        rv.setViewPadding(
+            R.id.widget_root, (8 * density).toInt(), (8 * density).toInt(),
+            (8 * density).toInt(), (8 * density).toInt()
+        )
         rv.setInt(R.id.tv0, "setVisibility", View.VISIBLE)
         rv.setTextViewText(R.id.tv0, context.getString(R.string.widget_placeholder))
         rv.setTextViewTextSize(R.id.tv0, TypedValue.COMPLEX_UNIT_SP, 13f)

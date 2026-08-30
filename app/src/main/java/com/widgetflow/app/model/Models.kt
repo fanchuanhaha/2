@@ -157,6 +157,8 @@ data class WidgetConfig(
     var size: String = "4x2",
     var refreshMinutes: Int = 60,
     var bgColor: String = "",
+    /** 背景圆角半径（dp）；-1 = 使用默认 20dp */
+    var cornerRadius: Int = -1,
     var elements: MutableList<Element> = mutableListOf(),
     var lastUpdatedAt: Long = 0L,
     val widgetIds: MutableSet<Int> = mutableSetOf()
@@ -172,6 +174,7 @@ data class WidgetConfig(
         w.put("size", size)
         w.put("refreshMinutes", refreshMinutes)
         if (bgColor.isNotBlank()) w.put("bgColor", bgColor)
+        if (cornerRadius >= 0) w.put("cornerRadius", cornerRadius)
         val els = JSONArray()
         elements.forEach { e ->
             els.put(
@@ -223,6 +226,7 @@ data class WidgetConfig(
                 c.size = if (w.optString("size") == "2x2") "2x2" else "4x2"
                 c.refreshMinutes = w.optInt("refreshMinutes", 60)
                 c.bgColor = w.optString("bgColor", "")
+                c.cornerRadius = w.optInt("cornerRadius", -1)
                 w.optJSONArray("elements")?.let { els ->
                     for (i in 0 until els.length()) {
                         val o = els.optJSONObject(i) ?: continue

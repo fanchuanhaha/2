@@ -170,6 +170,27 @@ class WidgetEditorActivity : AppCompatActivity() {
             }
         )
 
+        // 背景圆角（0..8 → 0..32dp）
+        binding.step4.seekCorner.max = 8
+        binding.step4.seekCorner.setOnSeekBarChangeListener(
+            object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(
+                    sb: android.widget.SeekBar?, progress: Int, fromUser: Boolean
+                ) {
+                    val radius = progress * 4
+                    binding.step4.cornerValue.text =
+                        if (radius == 0) getString(R.string.corner_square) else "${radius}dp"
+                    if (fromUser) {
+                        draft.cornerRadius = radius
+                        rebuildCanvas()
+                    }
+                }
+
+                override fun onStartTrackingTouch(sb: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(sb: android.widget.SeekBar?) {}
+            }
+        )
+
         binding.step4.inpTemplate.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -312,8 +333,17 @@ class WidgetEditorActivity : AppCompatActivity() {
         val canvas = binding.step4.canvas
         canvas.post {
             val wrap = canvas.parent as? FrameLayout ?: return@post
-            canvas.layoutParams.width =
-                if (draft.size == "2x2") wrap.width / 2 else ViewGroup.LayoutParams.MATCH_PARENT
+            if (draft.size == "2x2") {
+                // 2x2 画布放大到屏幕宽度 80% 以上，便于拖动元素
+                val screenW = resources.displayMetrics.widthPixels
+                val w = (screenW * 0.85f).toInt().coerceAtMost(wrap.width)
+                val h = (w * 110f / 140f).toInt() // 与 2x2 桌面实际比例一致
+                canvas.layoutParams.width = w
+                canvas.layoutParams.height = h
+            } else {
+                canvas.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+                canvas.layoutParams.height = 150.dp()
+            }
             canvas.requestLayout()
         }
     }
@@ -345,19 +375,43 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    /** 弹窗勾选要添加的数据源（可多选），无需输名称 */
+    /** 弹窗勾选要添加的数据源（可多选），无需输名称；列表可滚动 */
     private fun showAddSourceDialog() {
         if (sources.isEmpty()) {
             Toast.makeText(this, R.string.hint_no_source_widget, Toast.LENGTH_SHORT).show()
             return
         }
-        val names = sources.map { it.name.ifBlank { "未命名数据源" } }.toTypedArray()
+        val names = sources.map { it.name.ifBlank { "未命名数据源" } }
         val checked = BooleanArray(sources.size) { false }
+
+        // 自定义可滚动列表：数据源很多时也能滑到底部
+        val maxH = (resources.displayMetrics.heightPixels * 0.6f).toInt()
+        val scroll = android.widget.ScrollView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, maxH
+            )
+        }
+        val list = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(24.dp(), 8.dp(), 24.dp(), 8.dp())
+        }
+        sources.forEachIndexed { i, _ ->
+            val cb = android.widget.CheckBox(this).apply {
+                text = names[i]
+                textSize = 15f
+                isChecked = false
+                setOnCheckedChangeListener { _, isChecked -> checked[i] = isChecked }
+            }
+            cb.layoutParams = android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            list.addView(cb)
+        }
+        scroll.addView(list)
+
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.add_source_dialog_title)
-            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
-                checked[which] = isChecked
-            }
+            .setView(scroll)
             .setNegativeButton(R.string.btn_cancel, null)
             .setPositiveButton(R.string.add_source_dialog_ok) { _, _ ->
                 addElementsForSelectedSources(checked)
@@ -411,14 +465,28 @@ class WidgetEditorActivity : AppCompatActivity() {
         rebuildCanvas()
         renderChips()
         updatePanel()
+        syncCornerSeekbar()
+    }
+
+    /** 把当前圆角值同步到滑块（-1 默认按 20dp 显示） */
+    private fun syncCornerSeekbar() {
+        val r = if (draft.cornerRadius >= 0) draft.cornerRadius else 20
+        binding.step4.seekCorner.progress = (r / 4).coerceIn(0, 8)
+        binding.step4.cornerValue.text =
+            if (r == 0) getString(R.string.corner_square) else "${r}dp"
     }
 
     private fun rebuildCanvas() {
         val canvas = binding.step4.canvas
         canvas.removeAllViews()
-        if (draft.bgColor.isNotBlank()) {
-            canvas.background = null
-            canvas.setBackgroundColor(parseColorSafe(draft.bgColor))
+        if (draft.bgColor.isNotBlank() || draft.cornerRadius >= 0) {
+            val color = if (draft.bgColor.isNotBlank()) parseColorSafe(draft.bgColor)
+            else getColor(R.color.widget_bg_color)
+            val radiusDp = if (draft.cornerRadius >= 0) draft.cornerRadius else 20
+            canvas.background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(color)
+                cornerRadius = radiusDp.dp().toFloat()
+            }
         } else {
             canvas.background = getDrawable(R.drawable.widget_bg)
         }
