@@ -129,14 +129,36 @@ object WidgetUpdater {
             renderPlaceholder(context, appWidgetId)
             return
         }
-        val rv = RemoteViews(context.packageName, R.layout.widget_flow)
-
         val opts = awm.getAppWidgetOptions(appWidgetId)
         val density = context.resources.displayMetrics.density
         val widthDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).coerceAtLeast(60)
         val heightDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).coerceAtLeast(40)
         val wPx = (widthDp * density).toInt()
         val hPx = (heightDp * density).toInt()
+
+        val rv = buildRemoteViews(context, widget, wPx, hPx)
+
+        // 点按组件 → 刷新该组件的数据（不再打开 App）
+        val owner = ownerComponent(context, appWidgetId)
+        val refreshIntent = Intent(FlowWidgetProvider.ACTION_REFRESH).setComponent(owner)
+            .putExtra(FlowWidgetProvider.EXTRA_WIDGET_ID, appWidgetId)
+        val refreshPi = PendingIntent.getBroadcast(
+            context, 30000 + appWidgetId, refreshIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        rv.setOnClickPendingIntent(R.id.widget_root, refreshPi)
+
+        awm.updateAppWidget(appWidgetId, rv)
+    }
+
+    /**
+     * 构造与桌面组件完全一致的 RemoteViews（桌面更新与 App 内预览共用此方法，
+     * 保证 App 里的预览 = 桌面实际效果）。
+     * @param wPx 组件逻辑宽度（像素）；@param hPx 组件逻辑高度（像素）
+     */
+    fun buildRemoteViews(context: Context, widget: WidgetConfig, wPx: Int, hPx: Int): RemoteViews {
+        val rv = RemoteViews(context.packageName, R.layout.widget_flow)
+        val density = context.resources.displayMetrics.density
 
         // 自定义背景色/圆角：渲染圆角位图铺满；否则恢复默认圆角背景
         if (widget.bgColor.isNotBlank() || widget.cornerRadius >= 0) {
@@ -206,17 +228,25 @@ object WidgetUpdater {
             R.id.tv_badge, "setVisibility",
             if (anyErr) View.VISIBLE else View.GONE
         )
+        return rv
+    }
 
-        // 点按组件主体 → 打开小部件编辑器
-        val editIntent = Intent(context, com.widgetflow.app.ui.WidgetEditorActivity::class.java)
-            .putExtra(com.widgetflow.app.ui.WidgetEditorActivity.EXTRA_WIDGET_ID, widget.id)
-        val editPi = PendingIntent.getActivity(
-            context, appWidgetId, editIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    /** 找到该组件 ID 所属的 Provider，用于点按刷新广播定向投递 */
+    private fun ownerComponent(context: Context, appWidgetId: Int): ComponentName {
+        val awm = AppWidgetManager.getInstance(context)
+        val providers = listOf(
+            FlowWidgetProvider1x1::class.java,
+            FlowWidgetProvider1x2::class.java,
+            FlowWidgetProvider2x1::class.java,
+            FlowWidgetProvider2x2::class.java,
+            FlowWidgetProvider4x2::class.java
         )
-        rv.setOnClickPendingIntent(R.id.widget_root, editPi)
-
-        awm.updateAppWidget(appWidgetId, rv)
+        providers.forEach { cls ->
+            if (awm.getAppWidgetIds(ComponentName(context, cls)).contains(appWidgetId)) {
+                return ComponentName(context, cls)
+            }
+        }
+        return ComponentName(context, FlowWidgetProvider4x2::class.java)
     }
 
     /** 应用自定义圆角背景：渲染圆角位图铺满组件（支持任意颜色 + 任意圆角） */

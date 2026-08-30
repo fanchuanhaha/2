@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.tabs.TabLayout
 import com.widgetflow.app.R
@@ -45,8 +46,11 @@ class MainActivity : AppCompatActivity() {
 
         pickWidgetId = intent.getIntExtra(EXTRA_PICK_WIDGET_ID, -1)
         binding.pickBanner.isVisible = pickWidgetId >= 0
-        // 桌面占位组件点按进入：直接切到「小部件」页选择
-        if (pickWidgetId >= 0) tabSource = false
+        // 桌面占位组件点按进入：直接切到「小部件」页选择，并隐藏新建按钮
+        if (pickWidgetId >= 0) {
+            tabSource = false
+            binding.fabNew.isVisible = false
+        }
 
         sourceAdapter = SourceAdapter(
             onTest = { s -> testSource(s) },
@@ -73,7 +77,7 @@ class MainActivity : AppCompatActivity() {
             onExport = { w -> exportWidget(w) },
             onPick = if (pickWidgetId >= 0) ({ w -> assignWidget(w) }) else null
         )
-        binding.widgetRecycler.layoutManager = LinearLayoutManager(this)
+        binding.widgetRecycler.layoutManager = GridLayoutManager(this, 2)
         binding.widgetRecycler.adapter = widgetAdapter
 
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {

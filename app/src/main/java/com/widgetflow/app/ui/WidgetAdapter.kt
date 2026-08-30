@@ -1,17 +1,20 @@
 package com.widgetflow.app.ui
 
-import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
+import android.widget.FrameLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.widgetflow.app.R
-import com.widgetflow.app.databinding.ItemConfigBinding
+import com.widgetflow.app.databinding.ItemWidgetGridBinding
 import com.widgetflow.app.model.WidgetConfig
-import com.widgetflow.app.storage.SourceStore
 import com.widgetflow.app.widget.WidgetUpdater
 
+/**
+ * 小部件网格适配器：每个单元用与桌面完全一致的 RemoteViews 渲染真实预览，
+ * 上面显示实际效果，下面显示名称。选择模式（onPick != null）时隐藏编辑/导出/删除按钮，
+ * 点按单元直接关联到新添加的桌面组件。
+ */
 class WidgetAdapter(
     private val onEdit: (String) -> Unit,
     private val onDelete: (WidgetConfig) -> Unit,
@@ -28,7 +31,7 @@ class WidgetAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-        val binding = ItemConfigBinding.inflate(
+        val binding = ItemWidgetGridBinding.inflate(
             LayoutInflater.from(parent.context), parent, false
         )
         return VH(binding)
@@ -39,54 +42,74 @@ class WidgetAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val c = items[position]
         val ctx = holder.binding.root.context
-        holder.binding.cfgName.text = c.name.ifBlank { "未命名小部件" }
-        // 展示引用到的数据源名称，帮助用户区分
-        holder.binding.cfgUrl.text = sourceSummary(ctx, c)
-        holder.binding.cfgSize.text = c.size
 
-        val dotColor = when {
-            c.elements.any { el ->
-                SourceStore.find(ctx, el.sourceId)?.lastStatus == WidgetConfig.STATUS_ERR
-            } -> R.color.err
-            c.lastUpdatedAt > 0 -> R.color.ok
-            else -> R.color.muted
-        }
-        holder.binding.cfgDot.setBackgroundColor(ContextCompat.getColor(ctx, dotColor))
-
-        val statusText = if (c.lastUpdatedAt > 0) {
-            "上次刷新 ${WidgetUpdater.formatTime(c.lastUpdatedAt)}"
+        holder.binding.cellName.text = c.name.ifBlank { "未命名小部件" }
+        val status = if (c.lastUpdatedAt > 0) {
+            "上次刷新 " + WidgetUpdater.formatTime(c.lastUpdatedAt)
         } else {
             "尚未刷新"
         }
-        holder.binding.cfgStatus.text = statusText
-        holder.binding.cfgDesk.visibility =
-            if (c.widgetIds.isNotEmpty()) View.VISIBLE else View.GONE
+        val desk = if (c.widgetIds.isNotEmpty()) " · 已在桌面" else ""
+        holder.binding.cellSub.text = c.size + " · " + status + desk
 
+        // 选择模式：只显示预览 + 名称，去掉编辑/导出/删除按钮
+        val pick = onPick
+        holder.binding.cellActions.visibility = if (pick != null) View.GONE else View.VISIBLE
         holder.binding.btnEdit.setOnClickListener { onEdit(c.id) }
         holder.binding.btnDelete.setOnClickListener { onDelete(c) }
         holder.binding.btnExport.setOnClickListener { onExport(c) }
+        holder.binding.root.setOnClickListener {
+            if (pick != null) pick(c) else onEdit(c.id)
+        }
 
-        val pick = onPick
-        if (pick != null) {
-            holder.binding.root.setOnClickListener { pick(c) }
-            holder.binding.root.isClickable = true
-        } else {
-            holder.binding.root.setOnClickListener(null)
-            holder.binding.root.isClickable = false
+        renderPreview(holder, c)
+    }
+
+    /** 用与桌面完全一致的 RemoteViews 渲染真实预览 */
+    private fun renderPreview(holder: VH, c: WidgetConfig) {
+        val box = holder.binding.previewBox
+        val ctx = box.context
+        box.post {
+            val w = box.width
+            if (w <= 0) return@post
+            val density = ctx.resources.displayMetrics.density
+            val maxH = (210 * density).toInt()
+            val ratio = aspectRatio(c.size) // 高 / 宽
+            var h = (w * ratio).toInt()
+            var wPx = w
+            if (h > maxH) {
+                h = maxH
+                wPx = (maxH / ratio).toInt()
+            }
+            if (wPx <= 0 || h <= 0) return@post
+            box.layoutParams = box.layoutParams.apply {
+                this.width = wPx
+                this.height = h
+            }
+            box.requestLayout()
+            val rv = WidgetUpdater.buildRemoteViews(ctx, c, wPx, h)
+            val view = rv.apply(ctx, null)
+            box.removeAllViews()
+            box.addView(
+                view,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
         }
     }
 
-    /** 汇总该小部件引用了哪些数据源 */
-    private fun sourceSummary(ctx: Context, c: WidgetConfig): String {
-        val names = c.elements.mapNotNull { el ->
-            SourceStore.find(ctx, el.sourceId)?.name?.takeIf { it.isNotBlank() }
-        }.distinct()
-        return if (names.isEmpty()) {
-            ctx.getString(R.string.source_refs) + ": （未绑定）"
-        } else {
-            ctx.getString(R.string.source_refs) + ": " + names.joinToString(" · ")
+    class VH(val binding: ItemWidgetGridBinding) : RecyclerView.ViewHolder(binding.root)
+
+    companion object {
+        /** 各尺寸组件的高宽比（与 widget_info 的 minWidth/minHeight 一致） */
+        private fun aspectRatio(size: String): Float = when (size) {
+            "1x1" -> 1f
+            "1x2" -> 110f / 40f
+            "2x1" -> 40f / 90f
+            "2x2" -> 110f / 140f
+            else -> 110f / 250f
         }
     }
-
-    class VH(val binding: ItemConfigBinding) : RecyclerView.ViewHolder(binding.root)
 }
