@@ -65,6 +65,11 @@ class WizardActivity : AppCompatActivity() {
             "#FFFFFF", "#E6E9F5", "#1F2430", "#4F63F5", "#14B8A6",
             "#C77E17", "#C63C3C", "#B85CFF", "#5D6A85", "#9AA3BC"
         )
+        // 背景可选色板（含黑/白/深蓝/浅色等，适合搭配不同文字颜色）
+        private val BG_COLORS = listOf(
+            "#FFFFFF", "#F5F7FE", "#E6E9F5", "#000000", "#1F2430",
+            "#232A55", "#4F63F5", "#14B8A6", "#C77E17", "#C63C3C"
+        )
     }
 
     private lateinit var binding: ActivityWizardBinding
@@ -720,6 +725,9 @@ class WizardActivity : AppCompatActivity() {
             binding.step4.boxColors.addView(v)
         }
 
+        // 背景颜色色板（含默认“无”留空项 + 深浅色可选底色）
+        buildBgColorSwatches()
+
         val refreshOptions = resources.getStringArray(R.array.refresh_options)
         val cur = REFRESH_MINUTES.indexOf(draft.refreshMinutes).coerceAtLeast(1)
         binding.step4.spinRefresh.adapter = ArrayAdapter(
@@ -743,6 +751,43 @@ class WizardActivity : AppCompatActivity() {
         draft.size = size
         applyCanvasWidth()
         updateSizeButtons()
+    }
+
+    /** 构建背景颜色色板：点选写入 draft.bgColor 并同步画布预览 */
+    private fun buildBgColorSwatches() {
+        binding.step4.boxBgColors.removeAllViews()
+        BG_COLORS.forEach { hex ->
+            val wrap = FrameLayout(this)
+            val wlp = LinearLayout.LayoutParams(36.dp(), 36.dp())
+            wlp.rightMargin = 8.dp()
+            wrap.layoutParams = wlp
+            // 选中时显示外圈描边
+            val active = draft.bgColor.equals(hex, true)
+            wrap.background = if (active) {
+                getDrawable(R.drawable.bg_swatch_selected)
+            } else {
+                null
+            }
+            val v = View(this)
+            val vlp = FrameLayout.LayoutParams(30.dp(), 30.dp())
+            vlp.gravity = Gravity.CENTER
+            v.layoutParams = vlp
+            v.background = getDrawable(R.drawable.color_swatch)
+            v.background?.setTint(parseColorSafe(hex))
+            v.setOnClickListener {
+                draft.bgColor = if (draft.bgColor.equals(hex, true)) "" else hex
+                rebuildCanvas()
+                buildBgColorSwatches()
+            }
+            wrap.addView(v)
+            binding.step4.boxBgColors.addView(wrap)
+        }
+        binding.step4.btnBgDefault.setOnClickListener {
+            draft.bgColor = ""
+            rebuildCanvas()
+            buildBgColorSwatches()
+            Toast.makeText(this, R.string.btn_bg_default, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updateSizeButtons() {
@@ -805,6 +850,13 @@ class WizardActivity : AppCompatActivity() {
     private fun rebuildCanvas() {
         val canvas = binding.step4.canvas
         canvas.removeAllViews()
+        // 预览画布应用所选背景色（空 = 默认主题圆角背景）
+        if (draft.bgColor.isNotBlank()) {
+            canvas.background = null
+            canvas.setBackgroundColor(parseColorSafe(draft.bgColor))
+        } else {
+            canvas.background = getDrawable(R.drawable.widget_bg)
+        }
         val map = previewMap()
         val time = timeNow()
         draft.elements.forEachIndexed { i, el ->
@@ -1254,11 +1306,13 @@ class WizardActivity : AppCompatActivity() {
                 CrashLog.e(app, "pinVerify", t)
             }
         }
-        // 多轮探测：用户在桌面确认放置可能耗时
+        // 多轮探测：用户在桌面确认放置可能耗时（华为等启动器确认较慢）
         val h = Handler(Looper.getMainLooper())
         h.postDelayed(check, 6000)
         h.postDelayed(check, 15000)
         h.postDelayed(check, 30000)
+        h.postDelayed(check, 60000)
+        h.postDelayed(check, 120000)
     }
 
     // ================= 工具 =================

@@ -54,6 +54,8 @@
     <string name="label_template">文本模板</string>
     <string name="label_font_size">字号</string>
     <string name="label_color">颜色</string>
+    <string name="label_bg_color">背景颜色（整个小部件底色）</string>
+    <string name="btn_bg_default">恢复默认背景</string>
     <string name="label_refresh">自动刷新</string>
     <string name="btn_delete_element">删除该元素</string>
     <string name="btn_reset_size">自适应大小</string>

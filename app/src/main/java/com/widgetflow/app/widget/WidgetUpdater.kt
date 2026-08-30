@@ -99,6 +99,15 @@ object WidgetUpdater {
         }
         val rv = RemoteViews(context.packageName, R.layout.widget_flow)
 
+        // 自定义背景色（空 = 使用主题默认的圆角背景 drawable）
+        if (config.bgColor.isNotBlank()) {
+            try {
+                rv.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor(config.bgColor))
+            } catch (e: IllegalArgumentException) {
+                // 非法颜色值：保持默认背景
+            }
+        }
+
         val opts = awm.getAppWidgetOptions(appWidgetId)
         val density = context.resources.displayMetrics.density
         val widthDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).coerceAtLeast(60)

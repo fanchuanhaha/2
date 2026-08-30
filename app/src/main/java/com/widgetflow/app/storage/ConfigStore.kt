@@ -16,7 +16,13 @@ object ConfigStore {
         val p = prefs(context)
         for (key in p.all.keys) {
             val s = p.getString(key, null) ?: continue
-            WidgetConfig.fromJson(s)?.let { out.add(it) }
+            val c = WidgetConfig.fromJson(s) ?: continue
+            // 旧版本未持久化 id：把 id 修正为存储键并重写，保证编辑/删除可定位
+            if (c.id != key) {
+                c.id = key
+                prefs(context).edit().putString(key, c.toJson()).apply()
+            }
+            out.add(c)
         }
         out.sortByDescending { it.lastUpdate }
         return out
@@ -32,7 +38,13 @@ object ConfigStore {
 
     fun find(context: Context, id: String): WidgetConfig? {
         val s = prefs(context).getString(id, null) ?: return null
-        return WidgetConfig.fromJson(s)
+        val c = WidgetConfig.fromJson(s) ?: return null
+        // 同样修正旧数据 id，避免重复随机 id
+        if (c.id != id) {
+            c.id = id
+            prefs(context).edit().putString(id, c.toJson()).apply()
+        }
+        return c
     }
 
     fun findForWidget(context: Context, appWidgetId: Int): WidgetConfig? =

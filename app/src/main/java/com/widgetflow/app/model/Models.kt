@@ -31,7 +31,7 @@ data class Element(
 }
 
 data class WidgetConfig(
-    val id: String,
+    var id: String,
     var name: String = "",
     var method: String = "GET",
     var url: String = "",
@@ -42,6 +42,7 @@ data class WidgetConfig(
     var rules: MutableList<ExtractRule> = mutableListOf(),
     var size: String = "4x2",
     var refreshMinutes: Int = 60,
+    var bgColor: String = "",
     var elements: MutableList<Element> = mutableListOf(),
     var aliasMap: MutableMap<String, String> = mutableMapOf(),
     var lastUpdate: Long = 0L,
@@ -54,6 +55,9 @@ data class WidgetConfig(
     fun toJson(export: Boolean = false): String {
         val root = JSONObject()
         root.put("format", "wfw/1")
+        // 内部存储时保留配置 id，保证编辑/删除能定位到同一条数据；
+        // 导出分享时不含 id，导入方会生成新 id
+        if (!export) root.put("id", id)
         root.put("name", name)
         val src = JSONObject()
         src.put("method", method)
@@ -85,6 +89,7 @@ data class WidgetConfig(
         val w = JSONObject()
         w.put("size", size)
         w.put("refreshMinutes", refreshMinutes)
+        if (bgColor.isNotBlank()) w.put("bgColor", bgColor)
         val els = JSONArray()
         elements.forEach { e ->
             els.put(
@@ -134,7 +139,9 @@ data class WidgetConfig(
                 val root = JSONObject(text)
                 if (!root.optString("format", "").startsWith("wfw")) return null
                 val src = root.optJSONObject("source") ?: return null
-                val c = WidgetConfig(id = newId())
+                // 存储时保留原 id；导入/旧数据无 id 时生成新 id
+                val savedId = root.optString("id", "").trim()
+                val c = WidgetConfig(id = if (savedId.isNotBlank()) savedId else newId())
                 c.name = root.optString("name", "导入的配置")
                 c.method = src.optString("method", "GET")
                 c.url = src.optString("url", "")
@@ -161,6 +168,7 @@ data class WidgetConfig(
                 root.optJSONObject("widget")?.let { w ->
                     c.size = if (w.optString("size") == "2x2") "2x2" else "4x2"
                     c.refreshMinutes = w.optInt("refreshMinutes", 60)
+                    c.bgColor = w.optString("bgColor", "")
                     w.optJSONArray("elements")?.let { els ->
                         for (i in 0 until els.length()) {
                             val o = els.optJSONObject(i) ?: continue
