@@ -842,7 +842,12 @@ class WizardActivity : AppCompatActivity() {
             )
             lp.rightMargin = 6.dp()
             chip.layoutParams = lp
-            val label = el.template.replace(Regex("\\{\\w+}"), "").take(6).ifBlank { "元素" }
+            // 注意：{} 两个大括号都必须转义（Android ICU 正则对未转义的 } 会报 PatternSyntaxException）
+            val label = try {
+                el.template.replace(Regex("\\{\\w+\\}"), "").take(6).ifBlank { "元素" }
+            } catch (t: Throwable) {
+                "元素"
+            }
             chip.text = "${i + 1}·$label"
             chip.setPadding(12.dp(), 4.dp(), 12.dp(), 4.dp())
             chip.textSize = 12f
