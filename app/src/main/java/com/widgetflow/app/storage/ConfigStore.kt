@@ -102,7 +102,9 @@ object ConfigStore {
                             o.optDouble("y", 12.0).toFloat(),
                             o.optDouble("w", 0.0).toFloat(),
                             o.optDouble("h", 0.0).toFloat(),
-                            sourceId
+                            sourceId,
+                            o.optBoolean("bold", false),
+                            o.optBoolean("italic", false)
                         )
                     )
                 }

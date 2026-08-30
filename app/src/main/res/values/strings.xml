@@ -66,6 +66,8 @@
     <string name="label_rules">抽取规则 · 模板中以 {别名} 引用</string>
     <string name="label_template">文本模板</string>
     <string name="label_font_size">字号</string>
+    <string name="label_font_style">字体样式</string>
+    <string name="hint_drag">点按选中元素 · 长按拖动位置 · 拖右下角角标调整大小</string>
     <string name="label_color">颜色</string>
     <string name="label_bg_color">背景颜色（整个小部件底色）</string>
     <string name="label_corner_radius">圆角（拉到最右为圆形）</string>

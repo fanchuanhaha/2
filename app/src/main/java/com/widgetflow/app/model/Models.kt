@@ -26,10 +26,21 @@ data class Element(
     var width: Float = 0f,
     var height: Float = 0f,
     /** 引用哪个数据源（DataSource.id）；空 = 旧数据/未指定 */
-    var sourceId: String = ""
+    var sourceId: String = "",
+    /** 粗体 */
+    var bold: Boolean = false,
+    /** 斜体 */
+    var italic: Boolean = false
 ) {
     /** 是否设置了显式宽高（0 表示自适应内容） */
     fun hasExplicitSize(): Boolean = width > 0f || height > 0f
+
+    /** 字体样式：0 常规 / 1 粗体 / 2 斜体 / 3 粗斜体 */
+    fun typefaceStyle(): Int {
+        val b = if (bold) android.graphics.Typeface.BOLD else 0
+        val i = if (italic) android.graphics.Typeface.ITALIC else 0
+        return b or i
+    }
 }
 
 /**
@@ -187,6 +198,8 @@ data class WidgetConfig(
                     .put("y", e.y.toDouble())
                     .put("w", e.width.toDouble())
                     .put("h", e.height.toDouble())
+                    .put("bold", e.bold)
+                    .put("italic", e.italic)
             )
         }
         w.put("elements", els)
@@ -239,7 +252,9 @@ data class WidgetConfig(
                                 o.optDouble("y", 12.0).toFloat(),
                                 o.optDouble("w", 0.0).toFloat(),
                                 o.optDouble("h", 0.0).toFloat(),
-                                o.optString("src", "")
+                                o.optString("src", ""),
+                                o.optBoolean("bold", false),
+                                o.optBoolean("italic", false)
                             )
                         )
                     }

@@ -74,6 +74,8 @@ class WidgetEditorActivity : AppCompatActivity() {
     private var dragY = 0f
     private var dragL = 0
     private var dragT = 0
+    /** 是否处于长按拖动中（长按元素后进入，避免与页面滚动冲突） */
+    private var dragActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -253,6 +255,21 @@ class WidgetEditorActivity : AppCompatActivity() {
                 draft.elements[sel].height = 0f
                 rebuildCanvas()
                 updatePanel()
+            }
+        }
+
+        binding.step4.btnBold.setOnClickListener {
+            if (sel in draft.elements.indices) {
+                draft.elements[sel].bold = !draft.elements[sel].bold
+                updateStyleButtons()
+                rebuildCanvas()
+            }
+        }
+        binding.step4.btnItalic.setOnClickListener {
+            if (sel in draft.elements.indices) {
+                draft.elements[sel].italic = !draft.elements[sel].italic
+                updateStyleButtons()
+                rebuildCanvas()
             }
         }
 
@@ -537,6 +554,7 @@ class WidgetEditorActivity : AppCompatActivity() {
             )
             tv.text = renderTemplate(el.template, elementPreviewMap(el), time)
             tv.textSize = el.fontSize.toFloat()
+            tv.setTypeface(null, el.typefaceStyle())
             tv.setTextColor(parseColorSafe(el.color))
             tv.maxLines = 4
             if (i == sel) tv.setBackgroundColor(0x264CAF50)
@@ -574,7 +592,14 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
+    /** 元素拖动：点按选中，长按进入拖动（不吞掉触摸，页面可正常滚动） */
     private fun attachDrag(box: View, el: Element, index: Int) {
+        box.setOnLongClickListener {
+            selectElement(index, rebuild = false)
+            dragActive = true
+            box.parent?.requestDisallowInterceptTouchEvent(true)
+            true
+        }
         box.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -584,9 +609,12 @@ class WidgetEditorActivity : AppCompatActivity() {
                     val lp = v.layoutParams as FrameLayout.LayoutParams
                     dragL = lp.leftMargin
                     dragT = lp.topMargin
-                    true
+                    dragActive = false
+                    // 不消费 DOWN：让外层页面可以正常滚动；长按后再拖动元素
+                    false
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (!dragActive) return@setOnTouchListener false
                     val lp = v.layoutParams as FrameLayout.LayoutParams
                     val w = binding.step4.canvas.width
                     val h = binding.step4.canvas.height
@@ -598,16 +626,23 @@ class WidgetEditorActivity : AppCompatActivity() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    val w = binding.step4.canvas.width
-                    val h = binding.step4.canvas.height
-                    if (w > 0 && h > 0) {
-                        val lp = v.layoutParams as FrameLayout.LayoutParams
-                        el.x = lp.leftMargin * 100f / w
-                        el.y = lp.topMargin * 100f / h
+                    if (dragActive) {
+                        val w = binding.step4.canvas.width
+                        val h = binding.step4.canvas.height
+                        if (w > 0 && h > 0) {
+                            val lp = v.layoutParams as FrameLayout.LayoutParams
+                            el.x = lp.leftMargin * 100f / w
+                            el.y = lp.topMargin * 100f / h
+                        }
+                        dragActive = false
+                        updatePanel()
                     }
-                    updatePanel()
                     v.performClick()
                     true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    dragActive = false
+                    false
                 }
                 else -> false
             }
@@ -715,6 +750,20 @@ class WidgetEditorActivity : AppCompatActivity() {
             "可用: " + (aliases + "{time}").joinToString(" ")
     }
 
+    /** 更新 B/I 样式按钮高亮（绿=开启，灰=关闭） */
+    private fun updateStyleButtons() {
+        val el = draft.elements.getOrNull(sel)
+        val active = getColor(R.color.accent)
+        val activeBg = getColor(R.color.accent_light)
+        val inactive = getColor(R.color.muted)
+        fun mark(b: android.widget.Button, on: Boolean) {
+            b.setTextColor(if (on) active else inactive)
+            b.setBackgroundColor(if (on) activeBg else Color.TRANSPARENT)
+        }
+        mark(binding.step4.btnBold, el?.bold == true)
+        mark(binding.step4.btnItalic, el?.italic == true)
+    }
+
     private fun updatePanel() {
         val has = sel in draft.elements.indices
         val el = draft.elements.getOrNull(sel)
@@ -722,6 +771,8 @@ class WidgetEditorActivity : AppCompatActivity() {
         binding.step4.seekFont.isEnabled = has
         binding.step4.spinSource.isEnabled = has
         binding.step4.btnDeleteElement.isEnabled = has
+        binding.step4.btnBold.isEnabled = has
+        binding.step4.btnItalic.isEnabled = has
         binding.step4.propName.text = if (has && el != null) {
             val src = SourceStore.find(this, el.sourceId)
             val srcName = src?.name?.ifBlank { "未命名数据源" } ?: "未绑定"
@@ -750,6 +801,7 @@ class WidgetEditorActivity : AppCompatActivity() {
             v.scaleX = if (active) 1.2f else 1f
             v.scaleY = if (active) 1.2f else 1f
         }
+        updateStyleButtons()
     }
 
     private fun isDarkMode(): Boolean =

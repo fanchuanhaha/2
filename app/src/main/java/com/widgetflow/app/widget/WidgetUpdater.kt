@@ -165,7 +165,17 @@ object WidgetUpdater {
             val src = SourceStore.find(context, el.sourceId)
             val map = src?.aliasMap ?: emptyMap()
             if (src?.lastStatus == WidgetConfig.STATUS_ERR) anyErr = true
-            rv.setTextViewText(id, renderTemplate(el.template, map, time))
+            // 粗体/斜体：通过 StyleSpan 应用（RemoteViews 通用方案）
+            val text = renderTemplate(el.template, map, time)
+            val styled = android.text.SpannableString(text)
+            if (el.typefaceStyle() != android.graphics.Typeface.NORMAL) {
+                styled.setSpan(
+                    android.text.style.StyleSpan(el.typefaceStyle()),
+                    0, text.length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            rv.setTextViewText(id, styled)
             rv.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, el.fontSize.toFloat())
             try {
                 rv.setTextColor(id, Color.parseColor(el.color.ifBlank { defaultInk }))
