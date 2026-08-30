@@ -121,6 +121,13 @@ class MainActivity : AppCompatActivity() {
         binding.sourceEmpty.isVisible = showSource
         binding.widgetRecycler.isVisible = !showSource
         binding.widgetEmpty.isVisible = !showSource
+        binding.toolbar.subtitle = if (showSource) {
+            "${SourceStore.all(this).size} 个数据源"
+        } else {
+            val list = ConfigStore.all(this)
+            val onDesk = list.count { it.widgetIds.isNotEmpty() }
+            "${list.size} 个小部件 · $onDesk 个在桌面"
+        }
     }
 
     private fun reload() {
@@ -134,7 +141,6 @@ class MainActivity : AppCompatActivity() {
         sourceAdapter.submit(list)
         binding.sourceEmpty.isVisible = list.isEmpty()
         binding.sourceRecycler.isVisible = list.isNotEmpty()
-        binding.toolbar.subtitle = "${list.size} 个数据源"
     }
 
     private fun reloadWidgets() {
@@ -142,8 +148,6 @@ class MainActivity : AppCompatActivity() {
         widgetAdapter.submit(list)
         binding.widgetEmpty.isVisible = list.isEmpty()
         binding.widgetRecycler.isVisible = list.isNotEmpty()
-        val onDesk = list.count { it.widgetIds.isNotEmpty() }
-        binding.toolbar.subtitle = "${list.size} 个小部件 · $onDesk 个在桌面"
     }
 
     // ================= 数据源操作 =================
