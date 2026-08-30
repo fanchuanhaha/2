@@ -166,15 +166,30 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal" />
 
-            <Button
-                android:id="@+id/btn_delete_element"
-                style="@style/Widget.Material3.Button.OutlinedButton.Small"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:enabled="false"
-                android:text="@string/btn_delete_element"
-                android:textColor="@color/err" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_reset_size"
+                    style="@style/Widget.Material3.Button.OutlinedButton.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="8dp"
+                    android:text="@string/btn_reset_size" />
+
+                <Button
+                    android:id="@+id/btn_delete_element"
+                    style="@style/Widget.Material3.Button.OutlinedButton.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:enabled="false"
+                    android:text="@string/btn_delete_element"
+                    android:textColor="@color/err" />
+            </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

@@ -88,17 +88,69 @@
             android:paddingRight="16dp"
             android:paddingBottom="16dp">
 
+            <TextView
+                android:id="@+id/sec_head1"
+                style="@style/TextAppearance.Label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="2dp"
+                android:text="@string/sec_source"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
             <include
                 android:id="@+id/step1"
                 layout="@layout/step1_source" />
+
+            <TextView
+                android:id="@+id/sec_head2"
+                style="@style/TextAppearance.Label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="2dp"
+                android:text="@string/sec_preview"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <include
                 android:id="@+id/step2"
                 layout="@layout/step2_preview" />
 
+            <TextView
+                android:id="@+id/sec_head3"
+                style="@style/TextAppearance.Label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="2dp"
+                android:text="@string/sec_extract"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
             <include
                 android:id="@+id/step3"
                 layout="@layout/step3_extract" />
+
+            <TextView
+                android:id="@+id/sec_head4"
+                style="@style/TextAppearance.Label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="2dp"
+                android:text="@string/sec_editor"
+                android:textColor="@color/accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <include
                 android:id="@+id/step4"

@@ -56,7 +56,12 @@
     <string name="label_color">颜色</string>
     <string name="label_refresh">自动刷新</string>
     <string name="btn_delete_element">删除该元素</string>
+    <string name="btn_reset_size">自适应大小</string>
     <string name="add_element">+ 添加文本元素</string>
+    <string name="sec_source">① 数据源</string>
+    <string name="sec_preview">② 测试结果</string>
+    <string name="sec_extract">③ 字段抽取</string>
+    <string name="sec_editor">④ 组件编辑（拖拽移动，右下角拖拽缩放）</string>
     <string name="size_4x2">4x2</string>
     <string name="size_2x2">2x2</string>
     <string name="hint_url">https://v1.hitokoto.cn/</string>

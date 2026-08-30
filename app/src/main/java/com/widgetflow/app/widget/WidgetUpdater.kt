@@ -5,7 +5,9 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
+import android.os.Build
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -108,14 +110,32 @@ object WidgetUpdater {
 
         val time = if (config.lastUpdate > 0) formatTime(config.lastUpdate) else ""
 
+        // 深色模式自适应默认文字色（用户未自定义颜色时使用）
+        val dark = (context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val defaultInk = if (dark) "#E6E9F5" else "#1F2430"
+
         config.elements.take(WidgetConfig.MAX_ELEMENTS).forEachIndexed { i, el ->
             val id = elementIds[i]
             rv.setTextViewText(id, renderTemplate(el.template, config.aliasMap, time))
             rv.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, el.fontSize.toFloat())
             try {
-                rv.setTextColor(id, Color.parseColor(el.color))
+                rv.setTextColor(id, Color.parseColor(el.color.ifBlank { defaultInk }))
             } catch (e: IllegalArgumentException) {
-                rv.setTextColor(id, context.getColor(R.color.ink_dark))
+                rv.setTextColor(
+                    id, context.getColor(if (dark) R.color.ink_dark else R.color.ink)
+                )
+            }
+            // 显式宽高（画布拖拽缩放设置，0=自适应内容）；API 31+ 支持
+            if (Build.VERSION.SDK_INT >= 31 && (el.width > 0f || el.height > 0f)) {
+                if (el.width > 0f) {
+                    val wDp = (el.width * wPx / 100f / density)
+                    rv.setViewLayoutWidth(id, wDp, TypedValue.COMPLEX_UNIT_DIP)
+                }
+                if (el.height > 0f) {
+                    val hDp = (el.height * hPx / 100f / density)
+                    rv.setViewLayoutHeight(id, hDp, TypedValue.COMPLEX_UNIT_DIP)
+                }
             }
             rv.setInt(id, "setVisibility", View.VISIBLE)
             val x = ((el.x / 100f) * wPx).toInt().coerceIn(0, wPx)

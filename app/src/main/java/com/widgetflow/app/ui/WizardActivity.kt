@@ -4,8 +4,12 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import com.widgetflow.app.R
 import com.widgetflow.app.databinding.ActivityWizardBinding
@@ -55,9 +60,10 @@ class WizardActivity : AppCompatActivity() {
         const val EXTRA_CONFIG_ID = "configId"
         private val TIMEOUTS = intArrayOf(5, 10, 20, 30)
         private val REFRESH_MINUTES = intArrayOf(30, 60, 360, WidgetConfig.FREQ_DAILY_8)
+        // 深/浅色通用的可自定义色板（含白色与浅灰，便于深色背景下阅读）
         private val ELEMENT_COLORS = listOf(
-            "#1F2430", "#4F63F5", "#14B8A6", "#C77E17",
-            "#C63C3C", "#B85CFF", "#5D6A85", "#9AA3BC"
+            "#FFFFFF", "#E6E9F5", "#1F2430", "#4F63F5", "#14B8A6",
+            "#C77E17", "#C63C3C", "#B85CFF", "#5D6A85", "#9AA3BC"
         )
     }
 
@@ -69,6 +75,8 @@ class WizardActivity : AppCompatActivity() {
     private var suppress = true
     private var step = 1
     private var sel = -1
+    /** 编辑模式：4 页同时显示为单页滚动，无需“下一步” */
+    private var allVisible = false
 
     // 拖拽状态
     private var dragX = 0f
@@ -130,10 +138,10 @@ class WizardActivity : AppCompatActivity() {
         }
         binding.btnPrev.setOnClickListener { showStep(step - 1) }
         binding.btnNext.setOnClickListener {
-            if (step < 4) showStep(step + 1) else save()
+            if (step < 4 && !allVisible) showStep(step + 1) else save()
         }
 
-        showStep(1)
+        if (editingExisting) enterEditMode() else showStep(1)
     }
 
     // ================= 头部 =================
@@ -336,6 +344,12 @@ class WizardActivity : AppCompatActivity() {
                         "200 · ${result.ms}ms · ${result.body.length}B",
                         R.color.ok, getColor(R.color.ok_light)
                     )
+                    // 编辑模式单页：测试成功后实时刷新预览/抽取/编辑器
+                    if (allVisible) {
+                        renderStep2()
+                        renderStep3()
+                        renderEditor()
+                    }
                 }
                 is ApiResult.Failure -> {
                     tested = false
@@ -358,7 +372,16 @@ class WizardActivity : AppCompatActivity() {
             binding.step2.previewPill.text = "尚未测试"
             binding.step2.previewMeta.text = ""
             binding.step2.tvJson.text = ""
-            runTest()
+            if (editingExisting) {
+                // 编辑模式不自动联网测试，沿用上次成功数据
+                binding.step2.previewPill.text = "沿用上次数据"
+                binding.step2.previewMeta.text = "如需最新数据请点上方「测试」"
+                binding.step2.tvJson.text =
+                    "（沿用最近一次成功数据）\n" +
+                        draft.aliasMap.entries.joinToString("\n") { "${it.key} = ${it.value}" }
+            } else {
+                runTest()
+            }
             return
         }
         binding.step2.previewPill.text = "200 OK"
@@ -648,7 +671,12 @@ class WizardActivity : AppCompatActivity() {
             }
             val alias = draft.rules.getOrNull(draft.elements.size % draft.rules.size.coerceAtLeast(1))?.alias
             draft.elements.add(
-                Element(template = alias?.let { "{$it}" } ?: "新文本", fontSize = 10, x = 30f, y = 50f)
+                Element(
+                    template = alias?.let { "{$it}" } ?: "新文本",
+                    fontSize = 10,
+                    color = if (isDarkMode()) "#E6E9F5" else "#1F2430",
+                    x = 30f, y = 50f
+                )
             )
             sel = draft.elements.size - 1
             renderEditor()
@@ -662,6 +690,16 @@ class WizardActivity : AppCompatActivity() {
             draft.elements.removeAt(sel)
             sel = 0
             renderEditor()
+        }
+
+        // 重置为自适应大小（清除画布拖拽设置的显式宽高）
+        binding.step4.btnResetSize.setOnClickListener {
+            if (sel in draft.elements.indices) {
+                draft.elements[sel].width = 0f
+                draft.elements[sel].height = 0f
+                rebuildCanvas()
+                updatePanel()
+            }
         }
 
         ELEMENT_COLORS.forEach { hex ->
@@ -741,12 +779,15 @@ class WizardActivity : AppCompatActivity() {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
     private fun buildDefaultElements() {
+        val dark = isDarkMode()
+        val ink = if (dark) "#E6E9F5" else "#1F2430"
+        val muted = if (dark) "#9AA3BC" else "#5D6A85"
         draft.elements.clear()
         draft.rules.getOrNull(0)?.let {
-            draft.elements.add(Element("『{${it.alias}}』", 13, "#1F2430", 6f, 12f))
+            draft.elements.add(Element("『{${it.alias}}』", 13, ink, 6f, 12f))
         }
         draft.rules.getOrNull(1)?.let {
-            draft.elements.add(Element("—— {${it.alias}}", 9, "#5D6A85", 6f, 64f))
+            draft.elements.add(Element("—— {${it.alias}}", 9, muted, 6f, 64f))
         }
         draft.elements.add(Element("{time}", 7, "#9AA3BC", 70f, 87f))
     }
@@ -767,6 +808,13 @@ class WizardActivity : AppCompatActivity() {
         val map = previewMap()
         val time = timeNow()
         draft.elements.forEachIndexed { i, el ->
+            // 容器：承载文本 TextView + 右下角缩放柄
+            val box = FrameLayout(this)
+            box.layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            box.tag = i
+
             val tv = TextView(this)
             tv.layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -776,24 +824,45 @@ class WizardActivity : AppCompatActivity() {
             tv.setTextColor(parseColorSafe(el.color))
             tv.maxLines = 4
             if (i == sel) tv.setBackgroundColor(0x1A4F63F5)
-            attachDrag(tv, el, i)
-            canvas.addView(tv)
-            positionView(tv, el)
+            box.addView(tv)
+
+            // 缩放柄：选中时显示，拖拽可自定义宽高
+            val handle = View(this)
+            handle.layoutParams = FrameLayout.LayoutParams(
+                16.dp(), 16.dp(), Gravity.BOTTOM or Gravity.END
+            )
+            handle.background = ContextCompat.getDrawable(this, R.drawable.color_swatch)?.mutate()
+            handle.background?.setTint(getColor(R.color.accent))
+            handle.visibility = if (i == sel) View.VISIBLE else View.GONE
+            box.addView(handle)
+
+            attachDrag(box, el, i)
+            attachResize(handle, tv, el)
+            canvas.addView(box)
+            positionView(box, tv, el)
         }
     }
 
-    private fun positionView(tv: TextView, el: Element) {
+    private fun positionView(box: View, tv: TextView, el: Element) {
         val canvas = binding.step4.canvas
         canvas.post {
-            val lp = tv.layoutParams as FrameLayout.LayoutParams
+            val lp = box.layoutParams as FrameLayout.LayoutParams
             lp.leftMargin = (el.x / 100f * canvas.width).toInt()
             lp.topMargin = (el.y / 100f * canvas.height).toInt()
+            // 显式宽高（0=自适应内容）
+            val tvLp = tv.layoutParams as FrameLayout.LayoutParams
+            tvLp.width = if (el.width > 0f) (el.width / 100f * canvas.width).toInt().coerceAtLeast(20)
+            else ViewGroup.LayoutParams.WRAP_CONTENT
+            tvLp.height = if (el.height > 0f) (el.height / 100f * canvas.height).toInt().coerceAtLeast(20)
+            else ViewGroup.LayoutParams.WRAP_CONTENT
             tv.requestLayout()
+            box.requestLayout()
         }
     }
 
-    private fun attachDrag(tv: TextView, el: Element, index: Int) {
-        tv.setOnTouchListener { v, event ->
+    /** 拖拽移动元素（容器整体） */
+    private fun attachDrag(box: View, el: Element, index: Int) {
+        box.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     selectElement(index, rebuild = false)
@@ -832,6 +901,62 @@ class WizardActivity : AppCompatActivity() {
         }
     }
 
+    /** 拖拽右下角缩放柄：自定义元素宽高（百分比，0=自适应） */
+    private fun attachResize(handle: View, tv: TextView, el: Element) {
+        var sx = 0f
+        var sy = 0f
+        var startW = 0
+        var startH = 0
+        handle.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    sx = event.rawX
+                    sy = event.rawY
+                    val w = binding.step4.canvas.width
+                    val h = binding.step4.canvas.height
+                    startW = if (el.width > 0f) (el.width / 100f * w).toInt()
+                    else tv.width.coerceAtLeast(30)
+                    startH = if (el.height > 0f) (el.height / 100f * h).toInt()
+                    else tv.height.coerceAtLeast(20)
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (event.rawX - sx).toInt()
+                    val dy = (event.rawY - sy).toInt()
+                    val w = binding.step4.canvas.width
+                    val h = binding.step4.canvas.height
+                    if (w > 0 && h > 0) {
+                        val nw = (startW + dx).coerceAtLeast(24)
+                        val nh = (startH + dy).coerceAtLeast(20)
+                        el.width = nw * 100f / w
+                        el.height = nh * 100f / h
+                        val lp = tv.layoutParams as FrameLayout.LayoutParams
+                        lp.width = nw
+                        lp.height = nh
+                        tv.requestLayout()
+                        updatePanel()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    /** 更新选中高亮与缩放柄可见性（不重建画布，避免打断拖拽） */
+    private fun updateHandles() {
+        val canvas = binding.step4.canvas
+        for (i in 0 until canvas.childCount) {
+            val box = canvas.getChildAt(i) as? FrameLayout ?: continue
+            val tag = box.tag as? Int ?: continue
+            (box.getChildAt(0) as? TextView)?.let { tv ->
+                tv.setBackgroundColor(if (tag == sel) 0x1A4F63F5 else Color.TRANSPARENT)
+            }
+            val handle = box.getChildAt(1) ?: continue
+            handle.visibility = if (tag == sel) View.VISIBLE else View.GONE
+        }
+    }
+
     private fun renderChips() {
         val box = binding.step4.boxChips
         box.removeAllViews()
@@ -867,7 +992,7 @@ class WizardActivity : AppCompatActivity() {
         sel = i
         renderChips()
         updatePanel()
-        if (rebuild) rebuildCanvas()
+        if (rebuild) rebuildCanvas() else updateHandles()
     }
 
     private fun updatePanel() {
@@ -877,7 +1002,12 @@ class WizardActivity : AppCompatActivity() {
         binding.step4.seekFont.isEnabled = has
         binding.step4.btnDeleteElement.isEnabled = has
         binding.step4.propName.text = if (has && el != null) {
-            "元素 ${sel + 1} · 位置 ${el.x.toInt()}%, ${el.y.toInt()}%"
+            val sizeTxt = if (el.hasExplicitSize()) {
+                " · 尺寸 ${el.width.toInt()}% x ${el.height.toInt()}%"
+            } else {
+                " · 自适应"
+            }
+            "元素 ${sel + 1} · 位置 ${el.x.toInt()}%, ${el.y.toInt()}%$sizeTxt"
         } else {
             "未选中元素 · 点击画布或上方标签选择"
         }
@@ -906,13 +1036,44 @@ class WizardActivity : AppCompatActivity() {
 
     // ================= 步骤切换 =================
 
+    private fun isDarkMode(): Boolean =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+
+    /** 编辑模式：4 页同时显示为单页滚动，已有信息就地修改 */
+    private fun enterEditMode() {
+        allVisible = true
+        CrashLog.write(this, "wizard", "editMode all sections visible")
+        binding.step1.root.isVisible = true
+        binding.step2.root.isVisible = true
+        binding.step3.root.isVisible = true
+        binding.step4.root.isVisible = true
+        binding.secHead1.isVisible = true
+        binding.secHead2.isVisible = true
+        binding.secHead3.isVisible = true
+        binding.secHead4.isVisible = true
+        binding.stepDots.isVisible = false
+        binding.wzSubtitle.text = "编辑模式 · 向下滚动修改全部设置"
+        renderStep2()
+        renderStep3()
+        renderEditor()
+        updateBottomBar()
+        binding.stepScroll.fullScroll(View.FOCUS_UP)
+    }
+
     private fun showStep(n: Int) {
+        allVisible = false
         step = n.coerceIn(1, 4)
         CrashLog.write(this, "wizard", "showStep=$step tested=$tested rules=${draft.rules.size}")
         binding.step1.root.isVisible = step == 1
         binding.step2.root.isVisible = step == 2
         binding.step3.root.isVisible = step == 3
         binding.step4.root.isVisible = step == 4
+        binding.secHead1.isVisible = false
+        binding.secHead2.isVisible = false
+        binding.secHead3.isVisible = false
+        binding.secHead4.isVisible = false
+        binding.stepDots.isVisible = true
         setDots(step)
 
         binding.wzSubtitle.text = getString(
@@ -934,6 +1095,14 @@ class WizardActivity : AppCompatActivity() {
     }
 
     private fun updateBottomBar() {
+        if (allVisible) {
+            // 编辑模式：单页滚动，底部只保留“保存”
+            binding.btnPrev.isVisible = false
+            binding.btnNext.isVisible = true
+            binding.btnNext.isEnabled = true
+            binding.btnNext.text = getString(R.string.btn_save)
+            return
+        }
         val nextEnabled = when (step) {
             1 -> tested
             2 -> true
@@ -975,12 +1144,12 @@ class WizardActivity : AppCompatActivity() {
         if (draft.name.isBlank()) draft.name = "未命名配置"
         if (!tested && draft.aliasMap.isEmpty()) {
             Toast.makeText(this, R.string.toast_need_test, Toast.LENGTH_SHORT).show()
-            showStep(1)
+            if (!allVisible) showStep(1)
             return
         }
         if (draft.rules.isEmpty()) {
             Toast.makeText(this, R.string.toast_need_rule, Toast.LENGTH_SHORT).show()
-            showStep(3)
+            if (!allVisible) showStep(3)
             return
         }
         if (draft.elements.isEmpty()) {
@@ -1037,13 +1206,17 @@ class WizardActivity : AppCompatActivity() {
             else FlowWidgetProvider4x2::class.java
         )
         if (awm.isRequestPinAppWidgetSupported) {
+            val before = awm.getAppWidgetIds(provider).toSet()
             val callback = PendingIntent.getBroadcast(
-                this, 40001,
+                this, 40001 + (draft.id.hashCode() and 0xFFFF),
                 Intent(this, PinResultReceiver::class.java).putExtra("configId", draft.id),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val ok = awm.requestPinAppWidget(provider, null, callback)
             CrashLog.write(this, "requestPin", "supported=true ok=$ok size=${draft.size}")
+            // 部分启动器（如华为 EMUI）回调里 appWidgetId 会返回 -1，
+            // 这里轮询新出现的组件 ID 并自动关联到当前配置
+            schedulePinVerify(provider, draft.id, before)
             Toast.makeText(
                 this, "已保存，请在桌面确认添加「${draft.name}」",
                 Toast.LENGTH_LONG
@@ -1057,6 +1230,35 @@ class WizardActivity : AppCompatActivity() {
             ).show()
         }
         finish()
+    }
+
+    /** 轮询 requestPinAppWidget 后新出现的组件 ID，自动关联配置并渲染（兼容 -1 回调） */
+    private fun schedulePinVerify(provider: ComponentName, configId: String, before: Set<Int>) {
+        val app = applicationContext
+        val check = Runnable {
+            try {
+                val awm = AppWidgetManager.getInstance(app)
+                val now = awm.getAppWidgetIds(provider).toSet()
+                val newIds = now - before
+                CrashLog.write(app, "pinVerify", "new=${newIds.size} ids=$newIds")
+                newIds.forEach { wid ->
+                    val c = ConfigStore.find(app, configId) ?: return@forEach
+                    if (wid >= 0 && !c.widgetIds.contains(wid)) {
+                        c.widgetIds.add(wid)
+                        ConfigStore.save(app, c)
+                        WidgetUpdater.updateNow(app, wid)
+                        CrashLog.write(app, "pinVerify", "关联成功 widget=$wid config=$configId")
+                    }
+                }
+            } catch (t: Throwable) {
+                CrashLog.e(app, "pinVerify", t)
+            }
+        }
+        // 多轮探测：用户在桌面确认放置可能耗时
+        val h = Handler(Looper.getMainLooper())
+        h.postDelayed(check, 6000)
+        h.postDelayed(check, 15000)
+        h.postDelayed(check, 30000)
     }
 
     // ================= 工具 =================

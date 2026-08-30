@@ -22,8 +22,13 @@ data class Element(
     var fontSize: Int = 14,
     var color: String = "#1F2430",
     var x: Float = 6f,
-    var y: Float = 12f
-)
+    var y: Float = 12f,
+    var width: Float = 0f,
+    var height: Float = 0f
+) {
+    /** 是否设置了显式宽高（0 表示自适应内容） */
+    fun hasExplicitSize(): Boolean = width > 0f || height > 0f
+}
 
 data class WidgetConfig(
     val id: String,
@@ -89,6 +94,8 @@ data class WidgetConfig(
                     .put("color", e.color)
                     .put("x", e.x.toDouble())
                     .put("y", e.y.toDouble())
+                    .put("w", e.width.toDouble())
+                    .put("h", e.height.toDouble())
             )
         }
         w.put("elements", els)
@@ -163,7 +170,9 @@ data class WidgetConfig(
                                     o.optInt("size", 14),
                                     o.optString("color", "#1F2430"),
                                     o.optDouble("x", 6.0).toFloat(),
-                                    o.optDouble("y", 12.0).toFloat()
+                                    o.optDouble("y", 12.0).toFloat(),
+                                    o.optDouble("w", 0.0).toFloat(),
+                                    o.optDouble("h", 0.0).toFloat()
                                 )
                             )
                         }
