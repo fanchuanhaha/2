@@ -87,16 +87,23 @@ class WidgetAdapter(
                 this.height = h
             }
             box.requestLayout()
-            val rv = WidgetUpdater.buildRemoteViews(ctx, c, wPx, h)
-            val view = rv.apply(ctx, null)
-            box.removeAllViews()
-            box.addView(
-                view,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
+            try {
+                val rv = WidgetUpdater.buildRemoteViews(ctx, c, wPx, h)
+                // 必须用 applicationContext 的普通 LayoutInflater 展开：
+                // 若用 Activity 上下文会膨胀成 AppCompat 视图，RemoteViews 反射 setImageBitmap 会失败崩溃
+                val view = rv.apply(ctx.applicationContext, null)
+                box.removeAllViews()
+                box.addView(
+                    view,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                // 预览失败不崩溃：仅显示名称
+                box.removeAllViews()
+            }
         }
     }
 
