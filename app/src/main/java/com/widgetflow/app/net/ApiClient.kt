@@ -6,8 +6,8 @@ import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import com.widgetflow.app.model.DataSource
 import com.widgetflow.app.model.KeyValue
-import com.widgetflow.app.model.WidgetConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -38,9 +38,9 @@ object ApiClient {
     }
 
     /** 异步执行；retries 为失败后的自动重试次数（PRD：重试 2 次，间隔 1s / 4s） */
-    fun executeAsync(config: WidgetConfig, retries: Int = 0, onDone: (ApiResult) -> Unit) {
+    fun executeAsync(src: DataSource, retries: Int = 0, onDone: (ApiResult) -> Unit) {
         pool.execute {
-            var result = execute(config)
+            var result = execute(src)
             var attempt = 0
             val delays = longArrayOf(1000L, 4000L)
             while (result is ApiResult.Failure && attempt < retries) {
@@ -50,29 +50,29 @@ object ApiClient {
                     Thread.currentThread().interrupt()
                 }
                 attempt++
-                result = execute(config)
+                result = execute(src)
             }
             val r = result
             main.post { onDone(r) }
         }
     }
 
-    fun execute(config: WidgetConfig): ApiResult {
+    fun execute(src: DataSource): ApiResult {
         val started = SystemClock.elapsedRealtime()
         var conn: HttpURLConnection? = null
         try {
-            val full = buildUrl(config.url, config.params)
+            val full = buildUrl(src.url, src.params)
             conn = (URL(full).openConnection() as HttpURLConnection).apply {
-                requestMethod = config.method
-                connectTimeout = config.timeoutSec * 1000
-                readTimeout = config.timeoutSec * 1000
-                config.headers.forEach { h ->
+                requestMethod = src.method
+                connectTimeout = src.timeoutSec * 1000
+                readTimeout = src.timeoutSec * 1000
+                src.headers.forEach { h ->
                     if (h.key.isNotBlank()) setRequestProperty(h.key, h.value)
                 }
-                if (config.method == "POST" && config.body.isNotBlank()) {
+                if (src.method == "POST" && src.body.isNotBlank()) {
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                    outputStream.use { it.write(config.body.toByteArray(Charsets.UTF_8)) }
+                    outputStream.use { it.write(src.body.toByteArray(Charsets.UTF_8)) }
                 }
             }
             val code = conn.responseCode
@@ -92,7 +92,7 @@ object ApiClient {
             }
             return ApiResult.Success(code, body, ms, parsed)
         } catch (e: SocketTimeoutException) {
-            return ApiResult.Failure("超时", "请求超过 ${config.timeoutSec} 秒无响应")
+            return ApiResult.Failure("超时", "请求超过 ${src.timeoutSec} 秒无响应")
         } catch (e: Exception) {
             return ApiResult.Failure("网络错误", e.message ?: "无法连接")
         } finally {

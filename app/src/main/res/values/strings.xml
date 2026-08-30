@@ -4,8 +4,11 @@
     <string name="widget_label_4x2">WidgetFlow · 4x2</string>
     <string name="widget_label_2x2">WidgetFlow · 2x2</string>
 
-    <string name="title_my_configs">我的配置</string>
-    <string name="hint_empty_list">还没有配置\n点右下角 ＋ 新建一个数据源</string>
+    <string name="title_my_configs">WidgetFlow</string>
+    <string name="tab_sources">数据源</string>
+    <string name="tab_widgets">小部件</string>
+    <string name="hint_empty_sources">还没有数据源\n点右下角 ＋ 新建一个数据源\n（一个数据源可被多个小部件复用）</string>
+    <string name="hint_empty_widgets">还没有小部件\n请先创建数据源，再点右下角 ＋ 新建小部件\n一个组件可同时引用多个数据源</string>
     <string name="btn_edit">编辑</string>
     <string name="btn_delete">删除</string>
     <string name="btn_export">导出</string>
@@ -13,14 +16,22 @@
     <string name="menu_export_hint">导出会复制配置 JSON 到剪贴板</string>
     <string name="menu_log">查看运行日志</string>
 
-    <string name="pick_banner">选择要展示到桌面组件的配置</string>
+    <string name="pick_banner">选择要展示到桌面组件的小部件</string>
 
     <string name="wz_title_new">新建数据源</string>
-    <string name="wz_title_edit">编辑配置</string>
-    <string name="wz_step1_subtitle">步骤 1 / 4 · 请求定义</string>
-    <string name="wz_step2_subtitle">步骤 2 / 4 · 测试结果</string>
-    <string name="wz_step3_subtitle">步骤 3 / 4 · 字段抽取</string>
-    <string name="wz_step4_subtitle">步骤 4 / 4 · 拖拽排版</string>
+    <string name="wz_title_edit">编辑数据源</string>
+    <string name="widget_title_new">新建小部件</string>
+    <string name="widget_title_edit">编辑小部件</string>
+    <string name="wz_step1_subtitle">步骤 1 / 3 · 请求定义</string>
+    <string name="wz_step2_subtitle">步骤 2 / 3 · 测试结果</string>
+    <string name="wz_step3_subtitle">步骤 3 / 3 · 字段抽取</string>
+    <string name="wz_step4_subtitle">拖拽排版 · 元素可引用不同数据源</string>
+    <string name="wz_subtitle_edit_source">编辑模式 · 向下滚动修改全部设置</string>
+    <string name="label_element_source">数据源（该元素从哪个数据源取文本）</string>
+    <string name="btn_save_place">保存并放置桌面</string>
+    <string name="btn_save">保存</string>
+    <string name="hint_no_source_widget">还没有数据源，请先创建</string>
+    <string name="source_refs">引用数据源</string>
 
     <string name="preset_hitokoto">一言 API</string>
     <string name="preset_text">纯文本</string>
@@ -37,7 +48,6 @@
     <string name="btn_retest">重新测试</string>
     <string name="btn_prev">上一步</string>
     <string name="btn_next">下一步</string>
-    <string name="btn_save">保存并添加到桌面</string>
     <string name="status_testing">测试中…</string>
     <string name="status_need_test">需测试通过后才能进入下一步</string>
     <string name="status_modified">配置已修改，需重新测试</string>

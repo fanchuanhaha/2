@@ -19,6 +19,24 @@
             app:title="@string/title_my_configs"
             app:titleTextColor="@color/ink"
             app:subtitleTextColor="@color/muted" />
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:tabIndicatorColor="@color/accent"
+            app:tabIndicatorFullWidth="false"
+            app:tabSelectedTextColor="@color/accent"
+            app:tabTextColor="@color/muted">
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/tab_sources" />
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/tab_widgets" />
+        </com.google.android.material.tabs.TabLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <LinearLayout
@@ -44,8 +62,9 @@
             android:textStyle="bold"
             android:visibility="gone" />
 
+        <!-- 数据源列表 -->
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler"
+            android:id="@+id/source_recycler"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
@@ -54,14 +73,36 @@
             android:paddingBottom="88dp" />
 
         <TextView
-            android:id="@+id/empty_view"
+            android:id="@+id/source_empty"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:text="@string/hint_empty_list"
+            android:lineSpacingExtra="4dp"
+            android:text="@string/hint_empty_sources"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+
+        <!-- 小部件列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/widget_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="88dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp"
+            android:text="@string/hint_empty_widgets"
             android:textColor="@color/muted"
             android:textSize="14sp"
-            android:lineSpacingExtra="4dp" />
+            android:visibility="gone" />
     </LinearLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton

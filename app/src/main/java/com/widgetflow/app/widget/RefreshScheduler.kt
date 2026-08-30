@@ -42,10 +42,10 @@ object RefreshScheduler {
         val now = System.currentTimeMillis()
         ConfigStore.all(context).forEach { c ->
             if (c.widgetIds.isEmpty()) return@forEach
-            val never = c.lastUpdate == 0L
+            val never = c.lastUpdatedAt == 0L
             val due = never || when (c.refreshMinutes) {
-                WidgetConfig.FREQ_DAILY_8 -> now >= nextDaily8(c.lastUpdate)
-                else -> now - c.lastUpdate >= c.refreshMinutes * 60_000L
+                WidgetConfig.FREQ_DAILY_8 -> now >= nextDaily8(c.lastUpdatedAt)
+                else -> now - c.lastUpdatedAt >= c.refreshMinutes * 60_000L
             }
             if (due) {
                 c.widgetIds.forEach { WidgetUpdater.updateNow(context, it) }

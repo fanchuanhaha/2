@@ -18,8 +18,8 @@ import com.widgetflow.app.model.resolveAliases
 import com.widgetflow.app.net.ApiClient
 import com.widgetflow.app.net.ApiResult
 import com.widgetflow.app.storage.ConfigStore
+import com.widgetflow.app.storage.SourceStore
 import com.widgetflow.app.ui.MainActivity
-import com.widgetflow.app.ui.WizardActivity
 import com.widgetflow.app.util.CrashLog
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -27,9 +27,8 @@ import java.util.Locale
 
 /**
  * 小组件渲染与数据更新。
- * 布局策略：widget_flow.xml 提供一个 FrameLayout + 8 个 TextView，
- * 元素坐标按百分比换算为像素，API 31+ 用 setViewLayoutMargin，
- * 低版本回退 setPaddingLeft/Top（绝对定位的两种等价实现）。
+ * 小部件只负责展示：每个元素引用一个数据源（Element.sourceId），
+ * 刷新时并行拉取其引用的全部数据源，各自完成后重绘。
  */
 object WidgetUpdater {
 
@@ -37,41 +36,72 @@ object WidgetUpdater {
         R.id.tv0, R.id.tv1, R.id.tv2, R.id.tv3, R.id.tv4, R.id.tv5, R.id.tv6, R.id.tv7
     )
 
-    /** 拉取数据（失败自动重试 2 次）后渲染 */
+    /** 拉取该小部件引用的全部数据源（失败自动重试 2 次），完成后渲染 */
     fun updateNow(context: Context, appWidgetId: Int) {
-        val config = ConfigStore.findForWidget(context, appWidgetId)
-        if (config == null) {
+        val widget = ConfigStore.findForWidget(context, appWidgetId)
+        if (widget == null) {
             renderPlaceholder(context, appWidgetId)
             return
         }
-        if (!ApiClient.isOnline(context)) {
-            config.lastStatus = WidgetConfig.STATUS_ERR
-            config.lastError = "网络不可用"
-            ConfigStore.save(context, config)
-            render(context, appWidgetId)
+        refreshWidget(context, widget)
+    }
+
+    /** 刷新一个小部件：并行拉取其引用的数据源 */
+    fun refreshWidget(context: Context, widget: WidgetConfig) {
+        val srcIds = widget.elements.map { it.sourceId }
+            .filter { it.isNotBlank() }.distinct()
+        if (srcIds.isEmpty()) {
+            widget.widgetIds.forEach { render(context, it) }
             return
         }
-        ApiClient.executeAsync(config, retries = 2) { result ->
-            try {
-                when (result) {
-                    is ApiResult.Success -> {
-                        config.aliasMap = resolveAliases(config.rules, result.json, result.body)
-                        config.lastUpdate = System.currentTimeMillis()
-                        config.lastStatus = WidgetConfig.STATUS_OK
-                        config.lastError = ""
-                        ConfigStore.save(context, config)
-                    }
-                    is ApiResult.Failure -> {
-                        // 兜底：保留上次成功数据，仅标记错误状态
-                        config.lastStatus = WidgetConfig.STATUS_ERR
-                        config.lastError = result.reason
-                        ConfigStore.save(context, config)
-                    }
+        if (!ApiClient.isOnline(context)) {
+            srcIds.forEach { sid ->
+                SourceStore.find(context, sid)?.let { s ->
+                    s.lastStatus = WidgetConfig.STATUS_ERR
+                    s.lastError = "网络不可用"
+                    SourceStore.save(context, s)
                 }
-            } catch (t: Throwable) {
-                CrashLog.e(context, "updateNow", t)
             }
-            render(context, appWidgetId)
+            widget.lastUpdatedAt = System.currentTimeMillis()
+            ConfigStore.save(context, widget)
+            widget.widgetIds.forEach { render(context, it) }
+            return
+        }
+        srcIds.forEach { sid ->
+            val s = SourceStore.find(context, sid) ?: return@forEach
+            ApiClient.executeAsync(s, retries = 2) { result ->
+                try {
+                    when (result) {
+                        is ApiResult.Success -> {
+                            s.aliasMap = resolveAliases(s.rules, result.json, result.body)
+                            s.lastUpdate = System.currentTimeMillis()
+                            s.lastStatus = WidgetConfig.STATUS_OK
+                            s.lastError = ""
+                        }
+                        is ApiResult.Failure -> {
+                            // 兜底：保留上次成功数据，仅标记错误状态
+                            s.lastStatus = WidgetConfig.STATUS_ERR
+                            s.lastError = result.reason
+                        }
+                    }
+                    SourceStore.save(context, s)
+                } catch (t: Throwable) {
+                    CrashLog.e(context, "refreshWidget", t)
+                }
+                widget.lastUpdatedAt = System.currentTimeMillis()
+                ConfigStore.save(context, widget)
+                // 该数据源被多个小部件共享时，全部一起重绘
+                rerenderWidgetsUsing(context, sid)
+            }
+        }
+    }
+
+    /** 重绘所有引用了指定数据源的小部件 */
+    private fun rerenderWidgetsUsing(context: Context, sourceId: String) {
+        ConfigStore.all(context).forEach { w ->
+            if (w.elements.any { it.sourceId == sourceId }) {
+                w.widgetIds.forEach { render(context, it) }
+            }
         }
     }
 
@@ -81,7 +111,6 @@ object WidgetUpdater {
             renderInner(context, appWidgetId)
         } catch (t: Throwable) {
             CrashLog.e(context, "render", t)
-            // 渲染失败时降级为占位，避免整个进程崩溃
             try {
                 renderPlaceholder(context, appWidgetId)
             } catch (t2: Throwable) {
@@ -92,17 +121,17 @@ object WidgetUpdater {
 
     private fun renderInner(context: Context, appWidgetId: Int) {
         val awm = AppWidgetManager.getInstance(context)
-        val config = ConfigStore.findForWidget(context, appWidgetId)
-        if (config == null) {
+        val widget = ConfigStore.findForWidget(context, appWidgetId)
+        if (widget == null) {
             renderPlaceholder(context, appWidgetId)
             return
         }
         val rv = RemoteViews(context.packageName, R.layout.widget_flow)
 
         // 自定义背景色（空 = 使用主题默认的圆角背景 drawable）
-        if (config.bgColor.isNotBlank()) {
+        if (widget.bgColor.isNotBlank()) {
             try {
-                rv.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor(config.bgColor))
+                rv.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor(widget.bgColor))
             } catch (e: IllegalArgumentException) {
                 // 非法颜色值：保持默认背景
             }
@@ -117,16 +146,20 @@ object WidgetUpdater {
 
         elementIds.forEach { rv.setInt(it, "setVisibility", View.GONE) }
 
-        val time = if (config.lastUpdate > 0) formatTime(config.lastUpdate) else ""
+        val time = if (widget.lastUpdatedAt > 0) formatTime(widget.lastUpdatedAt) else ""
 
         // 深色模式自适应默认文字色（用户未自定义颜色时使用）
         val dark = (context.resources.configuration.uiMode and
             Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val defaultInk = if (dark) "#E6E9F5" else "#1F2430"
 
-        config.elements.take(WidgetConfig.MAX_ELEMENTS).forEachIndexed { i, el ->
+        var anyErr = false
+        widget.elements.take(WidgetConfig.MAX_ELEMENTS).forEachIndexed { i, el ->
             val id = elementIds[i]
-            rv.setTextViewText(id, renderTemplate(el.template, config.aliasMap, time))
+            val src = SourceStore.find(context, el.sourceId)
+            val map = src?.aliasMap ?: emptyMap()
+            if (src?.lastStatus == WidgetConfig.STATUS_ERR) anyErr = true
+            rv.setTextViewText(id, renderTemplate(el.template, map, time))
             rv.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, el.fontSize.toFloat())
             try {
                 rv.setTextColor(id, Color.parseColor(el.color.ifBlank { defaultInk }))
@@ -153,19 +186,18 @@ object WidgetUpdater {
             rv.setViewPadding(id, x, y, 0, 0)
         }
 
-        val err = config.lastStatus == WidgetConfig.STATUS_ERR
         rv.setTextViewText(
             R.id.tv_time,
-            if (err) context.getString(R.string.widget_wait_retry) else time
+            if (anyErr) context.getString(R.string.widget_wait_retry) else time
         )
         rv.setInt(
             R.id.tv_badge, "setVisibility",
-            if (err) View.VISIBLE else View.GONE
+            if (anyErr) View.VISIBLE else View.GONE
         )
 
-        // 点按组件主体 → 打开编辑器
-        val editIntent = Intent(context, WizardActivity::class.java)
-            .putExtra(WizardActivity.EXTRA_CONFIG_ID, config.id)
+        // 点按组件主体 → 打开小部件编辑器
+        val editIntent = Intent(context, com.widgetflow.app.ui.WidgetEditorActivity::class.java)
+            .putExtra(com.widgetflow.app.ui.WidgetEditorActivity.EXTRA_WIDGET_ID, widget.id)
         val editPi = PendingIntent.getActivity(
             context, appWidgetId, editIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -185,7 +217,7 @@ object WidgetUpdater {
         awm.updateAppWidget(appWidgetId, rv)
     }
 
-    /** 未关联配置时的占位渲染 */
+    /** 未关联小部件时的占位渲染 */
     fun renderPlaceholder(context: Context, appWidgetId: Int) {
         val awm = AppWidgetManager.getInstance(context)
         val rv = RemoteViews(context.packageName, R.layout.widget_flow)
@@ -208,7 +240,7 @@ object WidgetUpdater {
         awm.updateAppWidget(appWidgetId, rv)
     }
 
-    /** 重绘所有已放置的组件（开机恢复、配置删除后） */
+    /** 重绘所有已放置的组件（开机恢复、删除后） */
     fun renderAll(context: Context) {
         val awm = AppWidgetManager.getInstance(context)
         val ids = awm.getAppWidgetIds(ComponentName(context, FlowWidgetProvider4x2::class.java)) +

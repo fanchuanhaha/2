@@ -24,7 +24,12 @@
         </activity>
 
         <activity
-            android:name=".ui.WizardActivity"
+            android:name=".ui.SourceWizardActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.WidgetEditorActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 

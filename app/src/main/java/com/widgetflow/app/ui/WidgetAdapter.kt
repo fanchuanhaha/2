@@ -9,14 +9,15 @@ import androidx.recyclerview.widget.RecyclerView
 import com.widgetflow.app.R
 import com.widgetflow.app.databinding.ItemConfigBinding
 import com.widgetflow.app.model.WidgetConfig
+import com.widgetflow.app.storage.SourceStore
 import com.widgetflow.app.widget.WidgetUpdater
 
-class ConfigAdapter(
+class WidgetAdapter(
     private val onEdit: (String) -> Unit,
     private val onDelete: (WidgetConfig) -> Unit,
     private val onExport: (WidgetConfig) -> Unit,
     private val onPick: ((WidgetConfig) -> Unit)?
-) : RecyclerView.Adapter<ConfigAdapter.VH>() {
+) : RecyclerView.Adapter<WidgetAdapter.VH>() {
 
     private val items = mutableListOf<WidgetConfig>()
 
@@ -38,21 +39,24 @@ class ConfigAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val c = items[position]
         val ctx = holder.binding.root.context
-        holder.binding.cfgName.text = c.name.ifBlank { "未命名配置" }
-        holder.binding.cfgUrl.text = "${c.method}  ${c.url}"
+        holder.binding.cfgName.text = c.name.ifBlank { "未命名小部件" }
+        // 展示引用到的数据源名称，帮助用户区分
+        holder.binding.cfgUrl.text = sourceSummary(ctx, c)
         holder.binding.cfgSize.text = c.size
 
         val dotColor = when {
-            c.lastStatus == WidgetConfig.STATUS_ERR -> R.color.err
-            c.lastStatus == WidgetConfig.STATUS_OK -> R.color.ok
+            c.elements.any { el ->
+                SourceStore.find(ctx, el.sourceId)?.lastStatus == WidgetConfig.STATUS_ERR
+            } -> R.color.err
+            c.lastUpdatedAt > 0 -> R.color.ok
             else -> R.color.muted
         }
         holder.binding.cfgDot.setBackgroundColor(ContextCompat.getColor(ctx, dotColor))
 
-        val statusText = when (c.lastStatus) {
-            WidgetConfig.STATUS_ERR -> "刷新失败：${c.lastError}"
-            WidgetConfig.STATUS_OK -> "上次刷新 ${WidgetUpdater.formatTime(c.lastUpdate)}"
-            else -> "尚未刷新"
+        val statusText = if (c.lastUpdatedAt > 0) {
+            "上次刷新 ${WidgetUpdater.formatTime(c.lastUpdatedAt)}"
+        } else {
+            "尚未刷新"
         }
         holder.binding.cfgStatus.text = statusText
         holder.binding.cfgDesk.visibility =
@@ -69,6 +73,18 @@ class ConfigAdapter(
         } else {
             holder.binding.root.setOnClickListener(null)
             holder.binding.root.isClickable = false
+        }
+    }
+
+    /** 汇总该小部件引用了哪些数据源 */
+    private fun sourceSummary(ctx: Context, c: WidgetConfig): String {
+        val names = c.elements.mapNotNull { el ->
+            SourceStore.find(ctx, el.sourceId)?.name?.takeIf { it.isNotBlank() }
+        }.distinct()
+        return if (names.isEmpty()) {
+            ctx.getString(R.string.source_refs) + ": （未绑定）"
+        } else {
+            ctx.getString(R.string.source_refs) + ": " + names.joinToString(" · ")
         }
     }
 
