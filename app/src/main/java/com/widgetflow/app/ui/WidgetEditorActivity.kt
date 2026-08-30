@@ -75,6 +75,9 @@ class WidgetEditorActivity : AppCompatActivity() {
     private var dragL = 0
     private var dragT = 0
 
+    // 调整大小预览框（拖动期间只更新这个框，松手后再应用，避免卡顿）
+    private var resizePreview: View? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWidgetBinding.inflate(layoutInflater)
@@ -546,8 +549,6 @@ class WidgetEditorActivity : AppCompatActivity() {
             )
             box.tag = i
             box.isClickable = true
-            // 元素本体只响应点击选中，不拦截触摸 → 页面可以正常滚动
-            box.setOnClickListener { selectElement(i) }
 
             val tv = TextView(this)
             tv.layoutParams = FrameLayout.LayoutParams(
@@ -561,34 +562,36 @@ class WidgetEditorActivity : AppCompatActivity() {
             if (i == sel) tv.setBackgroundColor(0x264CAF50)
             box.addView(tv)
 
-            // 顶部移动手柄：选中元素时显示，拖动它来移动位置
-            val moveHandle = View(this)
-            moveHandle.layoutParams = FrameLayout.LayoutParams(
-                22.dp(), 22.dp(), Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            )
-            moveHandle.background = ContextCompat.getDrawable(this, R.drawable.bg_move_handle)
-            moveHandle.visibility = if (i == sel) View.VISIBLE else View.GONE
-            box.addView(moveHandle)
-
+            // 调整大小手柄（右下角，加大便于抓取，带抓手图标）
             val handle = View(this)
             handle.layoutParams = FrameLayout.LayoutParams(
-                16.dp(), 16.dp(), Gravity.BOTTOM or Gravity.END
+                30.dp(), 30.dp(), Gravity.BOTTOM or Gravity.END
             )
-            handle.background = ContextCompat.getDrawable(this, R.drawable.color_swatch)?.mutate()
-            handle.background?.setTint(getColor(R.color.accent))
+            handle.background = ContextCompat.getDrawable(this, R.drawable.bg_move_handle)
             handle.visibility = if (i == sel) View.VISIBLE else View.GONE
             box.addView(handle)
 
-            attachMove(moveHandle, box, el)
-            attachResize(handle, tv, el)
+            attachDrag(box, el, i)
+            attachResize(handle, box, tv, el)
             canvas.addView(box)
             positionView(box, tv, el)
         }
+
+        // 调整大小预览框：始终在最顶层，默认隐藏
+        val pv = resizePreview ?: View(this).also {
+            resizePreview = it
+            it.background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0x334CAF50)
+                setStroke(2.dp(), getColor(R.color.accent))
+            }
+            it.visibility = View.GONE
+        }
+        canvas.addView(pv)
     }
 
     private fun positionView(box: View, tv: TextView, el: Element) {
         val canvas = binding.step4.canvas
-        canvas.post {
+        fun apply() {
             val lp = box.layoutParams as FrameLayout.LayoutParams
             lp.leftMargin = (el.x / 100f * canvas.width).toInt()
             lp.topMargin = (el.y / 100f * canvas.height).toInt()
@@ -600,41 +603,67 @@ class WidgetEditorActivity : AppCompatActivity() {
             tv.requestLayout()
             box.requestLayout()
         }
+        if (canvas.width > 0) apply() else canvas.post { apply() }
     }
 
-    /** 移动元素：拖动选中元素顶部的手柄（仅手柄拦截触摸，不影响页面滚动） */
-    private fun attachMove(handle: View, box: View, el: Element) {
-        handle.setOnTouchListener { _, event ->
+    /** 元素拖动：按住元素块的任意位置即可拖动（平移式更新，避免每帧重排导致卡顿） */
+    private fun attachDrag(box: View, el: Element, index: Int) {
+        var moved = false
+        box.setOnTouchListener { v, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    moved = false
+                    selectElement(index, rebuild = false)
                     dragX = event.rawX
                     dragY = event.rawY
-                    val lp = box.layoutParams as FrameLayout.LayoutParams
+                    val lp = v.layoutParams as FrameLayout.LayoutParams
                     dragL = lp.leftMargin
                     dragT = lp.topMargin
-                    box.parent?.requestDisallowInterceptTouchEvent(true)
+                    // 阻止外层页面 ScrollView 抢走手势，保证竖向拖动也能移动元素
+                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                    v.translationX = 0f
+                    v.translationY = 0f
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val lp = box.layoutParams as FrameLayout.LayoutParams
+                    val dx = event.rawX - dragX
+                    val dy = event.rawY - dragY
+                    // 触摸容差：未超过阈值视为“点击选中”，不移动元素
+                    if (!moved && dx * dx + dy * dy < 64f) return@setOnTouchListener true
+                    moved = true
                     val w = binding.step4.canvas.width
                     val h = binding.step4.canvas.height
-                    lp.leftMargin = (dragL + (event.rawX - dragX).toInt())
-                        .coerceIn(0, (w - box.width).coerceAtLeast(0))
-                    lp.topMargin = (dragT + (event.rawY - dragY).toInt())
-                        .coerceIn(0, (h - box.height).coerceAtLeast(0))
-                    box.requestLayout()
+                    val nx = (dragL + dx.toInt())
+                        .coerceIn(0, (w - v.width).coerceAtLeast(0))
+                    val ny = (dragT + dy.toInt())
+                        .coerceIn(0, (h - v.height).coerceAtLeast(0))
+                    v.translationX = (nx - dragL).toFloat()
+                    v.translationY = (ny - dragT).toFloat()
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    val w = binding.step4.canvas.width
-                    val h = binding.step4.canvas.height
-                    if (w > 0 && h > 0) {
-                        val lp = box.layoutParams as FrameLayout.LayoutParams
-                        el.x = lp.leftMargin * 100f / w
-                        el.y = lp.topMargin * 100f / h
+                    if (moved) {
+                        val w = binding.step4.canvas.width
+                        val h = binding.step4.canvas.height
+                        if (w > 0 && h > 0) {
+                            val lp = v.layoutParams as FrameLayout.LayoutParams
+                            lp.leftMargin = dragL + v.translationX.toInt()
+                            lp.topMargin = dragT + v.translationY.toInt()
+                            el.x = lp.leftMargin * 100f / w
+                            el.y = lp.topMargin * 100f / h
+                        }
+                        v.translationX = 0f
+                        v.translationY = 0f
+                        v.requestLayout()
                     }
-                    handle.performClick()
+                    updatePanel()
+                    v.performClick()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    v.translationX = 0f
+                    v.translationY = 0f
+                    v.requestLayout()
                     true
                 }
                 else -> false
@@ -642,9 +671,12 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    private fun attachResize(handle: View, tv: TextView, el: Element) {
+    /** 调整大小：拖动右下角手柄，拖动期间只更新预览框，松手后再应用（保证顺滑） */
+    private fun attachResize(handle: View, box: View, tv: TextView, el: Element) {
         var sx = 0f
         var sy = 0f
+        var startL = 0
+        var startT = 0
         var startW = 0
         var startH = 0
         handle.setOnTouchListener { _, event ->
@@ -652,35 +684,72 @@ class WidgetEditorActivity : AppCompatActivity() {
                 MotionEvent.ACTION_DOWN -> {
                     sx = event.rawX
                     sy = event.rawY
+                    val lp = box.layoutParams as FrameLayout.LayoutParams
+                    startL = lp.leftMargin
+                    startT = lp.topMargin
                     val w = binding.step4.canvas.width
                     val h = binding.step4.canvas.height
                     startW = if (el.width > 0f) (el.width / 100f * w).toInt()
                     else tv.width.coerceAtLeast(30)
                     startH = if (el.height > 0f) (el.height / 100f * h).toInt()
                     else tv.height.coerceAtLeast(20)
+                    handle.parent?.requestDisallowInterceptTouchEvent(true)
+                    showResizePreview(startL, startT, startW, startH)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - sx).toInt()
                     val dy = (event.rawY - sy).toInt()
+                    val maxW = (binding.step4.canvas.width - startL).coerceAtLeast(24)
+                    val maxH = (binding.step4.canvas.height - startT).coerceAtLeast(20)
+                    val nw = (startW + dx).coerceIn(24, maxW)
+                    val nh = (startH + dy).coerceIn(20, maxH)
+                    showResizePreview(startL, startT, nw, nh)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
                     val w = binding.step4.canvas.width
                     val h = binding.step4.canvas.height
+                    val dx = (event.rawX - sx).toInt()
+                    val dy = (event.rawY - sy).toInt()
+                    val maxW = (w - startL).coerceAtLeast(24)
+                    val maxH = (h - startT).coerceAtLeast(20)
+                    val nw = (startW + dx).coerceIn(24, maxW)
+                    val nh = (startH + dy).coerceIn(20, maxH)
+                    hideResizePreview()
+                    handle.performClick()
                     if (w > 0 && h > 0) {
-                        val nw = (startW + dx).coerceAtLeast(24)
-                        val nh = (startH + dy).coerceAtLeast(20)
                         el.width = nw * 100f / w
                         el.height = nh * 100f / h
-                        val lp = tv.layoutParams as FrameLayout.LayoutParams
-                        lp.width = nw
-                        lp.height = nh
-                        tv.requestLayout()
-                        updatePanel()
                     }
+                    rebuildCanvas()
+                    updatePanel()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    hideResizePreview()
                     true
                 }
                 else -> false
             }
         }
+    }
+
+    private fun showResizePreview(l: Int, t: Int, w: Int, h: Int) {
+        val pv = resizePreview ?: return
+        val canvas = binding.step4.canvas
+        if (pv.parent == null) canvas.addView(pv)
+        val lp = pv.layoutParams as FrameLayout.LayoutParams
+        lp.leftMargin = l
+        lp.topMargin = t
+        lp.width = w
+        lp.height = h
+        pv.visibility = View.VISIBLE
+        pv.requestLayout()
+    }
+
+    private fun hideResizePreview() {
+        resizePreview?.visibility = View.GONE
     }
 
     private fun updateHandles() {
