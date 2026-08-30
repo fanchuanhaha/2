@@ -20,7 +20,7 @@ data class ExtractRule(
 data class Element(
     var template: String,
     var fontSize: Int = 14,
-    var color: String = "#1F2430",
+    var color: String = "#1E1E1E",
     var x: Float = 6f,
     var y: Float = 12f,
     var width: Float = 0f,
@@ -234,7 +234,7 @@ data class WidgetConfig(
                             Element(
                                 o.optString("tpl", ""),
                                 o.optInt("size", 14),
-                                o.optString("color", "#1F2430"),
+                                o.optString("color", "#1E1E1E"),
                                 o.optDouble("x", 6.0).toFloat(),
                                 o.optDouble("y", 12.0).toFloat(),
                                 o.optDouble("w", 0.0).toFloat(),

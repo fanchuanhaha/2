@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.WidgetFlow" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Theme.WidgetFlow" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/accent</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorPrimaryContainer">@color/accent_light</item>
         <item name="colorOnPrimaryContainer">@color/accent</item>
         <item name="colorSecondary">@color/accent2</item>
-        <item name="colorSecondaryContainer">#D9F5F1</item>
-        <item name="colorOnSecondaryContainer">#0B5F56</item>
+        <item name="colorSecondaryContainer">#1D3A35</item>
+        <item name="colorOnSecondaryContainer">#2CC4B2</item>
         <item name="android:colorBackground">@color/bg</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/ink</item>

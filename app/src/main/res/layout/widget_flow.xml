@@ -86,14 +86,4 @@
         android:textSize="11sp"
         android:textStyle="bold"
         android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tv_time"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:padding="6dp"
-        android:text=" "
-        android:textColor="@color/widget_time"
-        android:textSize="9sp" />
 </FrameLayout>

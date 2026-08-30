@@ -97,7 +97,7 @@ object ConfigStore {
                         Element(
                             o.optString("tpl", ""),
                             o.optInt("size", 14),
-                            o.optString("color", "#1F2430"),
+                            o.optString("color", "#1E1E1E"),
                             o.optDouble("x", 6.0).toFloat(),
                             o.optDouble("y", 12.0).toFloat(),
                             o.optDouble("w", 0.0).toFloat(),

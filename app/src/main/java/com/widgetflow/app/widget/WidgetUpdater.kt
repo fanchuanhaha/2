@@ -157,7 +157,7 @@ object WidgetUpdater {
         // 深色模式自适应默认文字色（用户未自定义颜色时使用）
         val dark = (context.resources.configuration.uiMode and
             Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val defaultInk = if (dark) "#E6E9F5" else "#1F2430"
+        val defaultInk = if (dark) "#E6E6E6" else "#1E1E1E"
 
         var anyErr = false
         widget.elements.take(WidgetConfig.MAX_ELEMENTS).forEachIndexed { i, el ->
@@ -192,10 +192,6 @@ object WidgetUpdater {
             rv.setViewPadding(id, x, y, 0, 0)
         }
 
-        rv.setTextViewText(
-            R.id.tv_time,
-            if (anyErr) context.getString(R.string.widget_wait_retry) else time
-        )
         rv.setInt(
             R.id.tv_badge, "setVisibility",
             if (anyErr) View.VISIBLE else View.GONE
@@ -209,16 +205,6 @@ object WidgetUpdater {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         rv.setOnClickPendingIntent(R.id.widget_root, editPi)
-
-        // 点按右下角时间区 → 手动刷新
-        val refreshIntent = Intent(context, FlowWidgetProvider4x2::class.java)
-            .setAction(FlowWidgetProvider.ACTION_REFRESH)
-            .putExtra(FlowWidgetProvider.EXTRA_WIDGET_ID, appWidgetId)
-        val refreshPi = PendingIntent.getBroadcast(
-            context, 10000 + appWidgetId, refreshIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        rv.setOnClickPendingIntent(R.id.tv_time, refreshPi)
 
         awm.updateAppWidget(appWidgetId, rv)
     }
@@ -270,7 +256,6 @@ object WidgetUpdater {
         rv.setTextViewTextSize(R.id.tv0, TypedValue.COMPLEX_UNIT_SP, 13f)
         rv.setTextColor(R.id.tv0, context.getColor(R.color.muted))
         rv.setInt(R.id.tv_badge, "setVisibility", View.GONE)
-        rv.setTextViewText(R.id.tv_time, " ")
 
         val pickIntent = Intent(context, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_PICK_WIDGET_ID, appWidgetId)
@@ -286,8 +271,14 @@ object WidgetUpdater {
     /** 重绘所有已放置的组件（开机恢复、删除后） */
     fun renderAll(context: Context) {
         val awm = AppWidgetManager.getInstance(context)
-        val ids = awm.getAppWidgetIds(ComponentName(context, FlowWidgetProvider4x2::class.java)) +
-            awm.getAppWidgetIds(ComponentName(context, FlowWidgetProvider2x2::class.java))
+        val providers = listOf(
+            FlowWidgetProvider1x1::class.java,
+            FlowWidgetProvider1x2::class.java,
+            FlowWidgetProvider2x1::class.java,
+            FlowWidgetProvider2x2::class.java,
+            FlowWidgetProvider4x2::class.java
+        )
+        val ids = providers.flatMap { awm.getAppWidgetIds(ComponentName(context, it)).toList() }
         ids.forEach { render(context, it) }
     }
 

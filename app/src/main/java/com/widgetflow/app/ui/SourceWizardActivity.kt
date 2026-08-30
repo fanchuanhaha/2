@@ -507,7 +507,7 @@ class SourceWizardActivity : AppCompatActivity() {
     private fun pickPath(node: TreeNode) {
         if (node.path == "$") return
         nodes.forEach { it.keyView.setBackgroundColor(android.graphics.Color.TRANSPARENT) }
-        node.keyView.setBackgroundColor(0x3314B8A6)
+        node.keyView.setBackgroundColor(0x334CAF50)
 
         if (draft.rules.any { it.path == node.path }) {
             binding.step3.rulesHint.text = "路径 ${node.path} 已在规则中"

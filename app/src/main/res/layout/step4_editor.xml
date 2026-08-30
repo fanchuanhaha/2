@@ -11,27 +11,78 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn_size_4x2"
-            android:layout_width="wrap_content"
+        <HorizontalScrollView
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:minWidth="0dp"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:text="@string/size_4x2"
-            android:textSize="13sp" />
+            android:layout_weight="1"
+            android:scrollbars="none">
 
-        <Button
-            android:id="@+id/btn_size_2x2"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="8dp"
-            android:minWidth="0dp"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:text="@string/size_2x2"
-            android:textSize="13sp" />
+            <LinearLayout
+                android:id="@+id/box_sizes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_size_1x1"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:text="@string/size_1x1"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btn_size_1x2"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="4dp"
+                    android:minWidth="0dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:text="@string/size_1x2"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btn_size_2x1"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="4dp"
+                    android:minWidth="0dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:text="@string/size_2x1"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btn_size_2x2"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="4dp"
+                    android:minWidth="0dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:text="@string/size_2x2"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btn_size_4x2"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="4dp"
+                    android:minWidth="0dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:text="@string/size_4x2"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </HorizontalScrollView>
 
         <Button
             android:id="@+id/btn_add_element"
@@ -103,10 +154,18 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/label_element_source" />
 
-            <Spinner
+            <TextView
                 android:id="@+id/spin_source"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_input"
+                android:drawableEnd="@android:drawable/arrow_down_float"
+                android:paddingLeft="12dp"
+                android:paddingTop="10dp"
+                android:paddingRight="12dp"
+                android:paddingBottom="10dp"
+                android:text="请选择数据源"
+                android:textSize="14sp" />
 
             <TextView
                 style="@style/TextAppearance.Label"

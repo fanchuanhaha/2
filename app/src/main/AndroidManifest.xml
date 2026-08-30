@@ -33,6 +33,48 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- 1x1 规格 -->
+        <receiver
+            android:name=".widget.FlowWidgetProvider1x1"
+            android:exported="false"
+            android:label="@string/widget_label_1x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.widgetflow.app.ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_1x1" />
+        </receiver>
+
+        <!-- 1x2 规格 -->
+        <receiver
+            android:name=".widget.FlowWidgetProvider1x2"
+            android:exported="false"
+            android:label="@string/widget_label_1x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.widgetflow.app.ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_1x2" />
+        </receiver>
+
+        <!-- 2x1 规格 -->
+        <receiver
+            android:name=".widget.FlowWidgetProvider2x1"
+            android:exported="false"
+            android:label="@string/widget_label_2x1">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.widgetflow.app.ACTION_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_2x1" />
+        </receiver>
+
         <!-- 4x2 规格 -->
         <receiver
             android:name=".widget.FlowWidgetProvider4x2"

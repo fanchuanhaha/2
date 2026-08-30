@@ -73,5 +73,8 @@ open class FlowWidgetProvider : AppWidgetProvider() {
     }
 }
 
-class FlowWidgetProvider4x2 : FlowWidgetProvider()
+class FlowWidgetProvider1x1 : FlowWidgetProvider()
+class FlowWidgetProvider1x2 : FlowWidgetProvider()
+class FlowWidgetProvider2x1 : FlowWidgetProvider()
 class FlowWidgetProvider2x2 : FlowWidgetProvider()
+class FlowWidgetProvider4x2 : FlowWidgetProvider()

@@ -30,6 +30,9 @@ import com.widgetflow.app.model.renderTemplate
 import com.widgetflow.app.storage.ConfigStore
 import com.widgetflow.app.storage.SourceStore
 import com.widgetflow.app.util.CrashLog
+import com.widgetflow.app.widget.FlowWidgetProvider1x1
+import com.widgetflow.app.widget.FlowWidgetProvider1x2
+import com.widgetflow.app.widget.FlowWidgetProvider2x1
 import com.widgetflow.app.widget.FlowWidgetProvider2x2
 import com.widgetflow.app.widget.FlowWidgetProvider4x2
 import com.widgetflow.app.widget.PinResultReceiver
@@ -48,14 +51,14 @@ class WidgetEditorActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_WIDGET_ID = "widgetId"
-        private val REFRESH_MINUTES = intArrayOf(30, 60, 360, WidgetConfig.FREQ_DAILY_8)
+        private val REFRESH_MINUTES = intArrayOf(1, 5, 15, 30, 60, 360, WidgetConfig.FREQ_DAILY_8)
         private val ELEMENT_COLORS = listOf(
-            "#FFFFFF", "#E6E9F5", "#1F2430", "#4F63F5", "#14B8A6",
-            "#C77E17", "#C63C3C", "#B85CFF", "#5D6A85", "#9AA3BC"
+            "#FFFFFF", "#E6E6E6", "#1E1E1E", "#4CAF50", "#757575",
+            "#C77E17", "#E53935", "#BDBDBD", "#9AA3BC", "#000000"
         )
         private val BG_COLORS = listOf(
-            "#FFFFFF", "#F5F7FE", "#E6E9F5", "#000000", "#1F2430",
-            "#232A55", "#4F63F5", "#14B8A6", "#C77E17", "#C63C3C"
+            "#FFFFFF", "#303030", "#2A2A2A", "#000000", "#1E1E1E",
+            "#4CAF50", "#757575", "#C77E17", "#E53935", "#9AA3BC"
         )
     }
 
@@ -111,37 +114,57 @@ class WidgetEditorActivity : AppCompatActivity() {
 
     // ================= 数据源选择器 =================
 
-    /** 元素 -> 数据源 映射。列表项为数据源名称，值存 sourceId */
+    /** 数据源选择：点击字段弹出可滚动单选列表（不再用下拉框，避免滑不动） */
     private fun setupSourceSpinner() {
-        val names = sources.map { it.name.ifBlank { "未命名数据源" } }
-        val adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, names
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        binding.step4.spinSource.adapter = adapter
-        binding.step4.spinSource.onItemSelectedListener =
-            object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(
-                    p: android.widget.AdapterView<*>?, v: View?, pos: Int, id: Long
-                ) {
-                    if (!suppress && sel in draft.elements.indices) {
-                        val srcId = sources.getOrNull(pos)?.id ?: return
-                        draft.elements[sel].sourceId = srcId
-                        updatePropAliases()
-                        rebuildCanvas()
-                    }
-                }
-
-                override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+        binding.step4.spinSource.setOnClickListener {
+            if (sel in draft.elements.indices) {
+                val idx = sources.indexOfFirst { it.id == draft.elements[sel].sourceId }
+                showSourceSelectDialog(idx.coerceAtLeast(0))
             }
+        }
     }
 
-    /** 把当前选中元素的数据源同步到下拉框 */
+    /** 单选数据源（ListView 原生滚动） */
+    private fun showSourceSelectDialog(initialIdx: Int) {
+        val names = sources.map { it.name.ifBlank { "未命名数据源" } }
+        val lv = android.widget.ListView(this).apply {
+            adapter = ArrayAdapter(
+                this@WidgetEditorActivity,
+                android.R.layout.simple_list_item_single_choice,
+                names
+            )
+            choiceMode = android.widget.ListView.CHOICE_MODE_SINGLE
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (resources.displayMetrics.heightPixels * 0.6f).toInt()
+            )
+            if (initialIdx in names.indices) setItemChecked(initialIdx, true)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.label_element_source)
+            .setView(lv)
+            .setNegativeButton(R.string.btn_cancel, null)
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
+                val pos = lv.checkedItemPosition
+                if (pos >= 0 && sel in draft.elements.indices) {
+                    draft.elements[sel].sourceId = sources[pos].id
+                    updatePropAliases()
+                    rebuildCanvas()
+                    updatePanel()
+                    syncSourceSpinner()
+                }
+            }
+            .show()
+    }
+
+    /** 把当前选中元素的数据源同步到字段文本 */
     private fun syncSourceSpinner() {
         val el = draft.elements.getOrNull(sel) ?: return
         val idx = sources.indexOfFirst { it.id == el.sourceId }
-        suppress = true
-        binding.step4.spinSource.setSelection(if (idx >= 0) idx else 0)
-        suppress = false
+        val name = if (idx >= 0) sources[idx].name.ifBlank { "未命名数据源" }
+        else "未绑定 · 点击选择"
+        binding.step4.spinSource.text = name
+        binding.step4.spinSource.isEnabled = true
         if (idx < 0 && sel in draft.elements.indices) {
             // 元素引用的数据源已不存在：绑定到第一个数据源
             sources.getOrNull(0)?.let { draft.elements[sel].sourceId = it.id }
@@ -170,18 +193,16 @@ class WidgetEditorActivity : AppCompatActivity() {
             }
         )
 
-        // 背景圆角（0..8 → 0..32dp）
+        // 背景圆角：0..8 → 0..64dp，拉到最右为圆形
         binding.step4.seekCorner.max = 8
         binding.step4.seekCorner.setOnSeekBarChangeListener(
             object : android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(
                     sb: android.widget.SeekBar?, progress: Int, fromUser: Boolean
                 ) {
-                    val radius = progress * 4
-                    binding.step4.cornerValue.text =
-                        if (radius == 0) getString(R.string.corner_square) else "${radius}dp"
+                    binding.step4.cornerValue.text = cornerLabel(progress * 8)
                     if (fromUser) {
-                        draft.cornerRadius = radius
+                        draft.cornerRadius = progress * 8
                         rebuildCanvas()
                     }
                 }
@@ -202,8 +223,11 @@ class WidgetEditorActivity : AppCompatActivity() {
             }
         })
 
-        binding.step4.btnSize4x2.setOnClickListener { setSize("4x2") }
+        binding.step4.btnSize1x1.setOnClickListener { setSize("1x1") }
+        binding.step4.btnSize1x2.setOnClickListener { setSize("1x2") }
+        binding.step4.btnSize2x1.setOnClickListener { setSize("2x1") }
         binding.step4.btnSize2x2.setOnClickListener { setSize("2x2") }
+        binding.step4.btnSize4x2.setOnClickListener { setSize("4x2") }
 
         binding.step4.btnAddElement.setOnClickListener {
             if (draft.elements.size >= WidgetConfig.MAX_ELEMENTS) {
@@ -316,35 +340,53 @@ class WidgetEditorActivity : AppCompatActivity() {
         val active = getColor(R.color.accent)
         val activeBg = getColor(R.color.accent_light)
         val inactive = getColor(R.color.muted)
-        if (draft.size == "4x2") {
-            binding.step4.btnSize4x2.setTextColor(active)
-            binding.step4.btnSize4x2.setBackgroundColor(activeBg)
-            binding.step4.btnSize2x2.setTextColor(inactive)
-            binding.step4.btnSize2x2.setBackgroundColor(Color.TRANSPARENT)
-        } else {
-            binding.step4.btnSize2x2.setTextColor(active)
-            binding.step4.btnSize2x2.setBackgroundColor(activeBg)
-            binding.step4.btnSize4x2.setTextColor(inactive)
-            binding.step4.btnSize4x2.setBackgroundColor(Color.TRANSPARENT)
+        fun mark(b: android.widget.Button, on: Boolean) {
+            b.setTextColor(if (on) active else inactive)
+            b.setBackgroundColor(if (on) activeBg else Color.TRANSPARENT)
         }
+        mark(binding.step4.btnSize1x1, draft.size == "1x1")
+        mark(binding.step4.btnSize1x2, draft.size == "1x2")
+        mark(binding.step4.btnSize2x1, draft.size == "2x1")
+        mark(binding.step4.btnSize2x2, draft.size == "2x2")
+        mark(binding.step4.btnSize4x2, draft.size == "4x2")
     }
 
     private fun applyCanvasWidth() {
         val canvas = binding.step4.canvas
         canvas.post {
             val wrap = canvas.parent as? FrameLayout ?: return@post
-            if (draft.size == "2x2") {
-                // 2x2 画布放大到屏幕宽度 80% 以上，便于拖动元素
-                val screenW = resources.displayMetrics.widthPixels
-                val w = (screenW * 0.85f).toInt().coerceAtMost(wrap.width)
-                val h = (w * 110f / 140f).toInt() // 与 2x2 桌面实际比例一致
-                canvas.layoutParams.width = w
-                canvas.layoutParams.height = h
-            } else {
-                canvas.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-                canvas.layoutParams.height = 150.dp()
-            }
+            val availW = wrap.width
+            val (w, h) = canvasSizeFor(draft.size, availW)
+            canvas.layoutParams.width = w
+            canvas.layoutParams.height = h
             canvas.requestLayout()
+        }
+    }
+
+    /** 画布宽高：尽量加宽便于拖动，比例与桌面 widget_info 一致 */
+    private fun canvasSizeFor(size: String, availW: Int): Pair<Int, Int> {
+        val screenH = resources.displayMetrics.heightPixels
+        return when (size) {
+            "1x1" -> {
+                val w = (availW * 0.55f).toInt()
+                Pair(w, w)
+            }
+            "1x2" -> {
+                val w = (availW * 0.4f).toInt()
+                Pair(w, (w * 110f / 40f).toInt().coerceAtMost((screenH * 0.7f).toInt()))
+            }
+            "2x1" -> {
+                val w = availW
+                Pair(w, (w * 40f / 90f).toInt())
+            }
+            "2x2" -> {
+                val w = availW
+                Pair(w, (w * 110f / 140f).toInt())
+            }
+            else -> { // 4x2
+                val w = availW
+                Pair(w, (w * 110f / 250f).toInt())
+            }
         }
     }
 
@@ -357,11 +399,10 @@ class WidgetEditorActivity : AppCompatActivity() {
     private fun timeNow(): String =
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-    /** 按第一个数据源的规则生成默认元素（不含时间元素） */
+    /** 按第一个数据源的规则生成默认元素（不含时间元素；界面为深色底，文字用浅色） */
     private fun buildDefaultElements() {
-        val dark = isDarkMode()
-        val ink = if (dark) "#E6E9F5" else "#1F2430"
-        val muted = if (dark) "#9AA3BC" else "#5D6A85"
+        val ink = "#E6E6E6"
+        val muted = "#BDBDBD"
         val first = sources.firstOrNull() ?: return
         draft.elements.clear()
         first.rules.getOrNull(0)?.let {
@@ -375,45 +416,31 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    /** 弹窗勾选要添加的数据源（可多选），无需输名称；列表可滚动 */
+    /** 弹窗勾选要添加的数据源（可多选），ListView 原生滚动 */
     private fun showAddSourceDialog() {
         if (sources.isEmpty()) {
             Toast.makeText(this, R.string.hint_no_source_widget, Toast.LENGTH_SHORT).show()
             return
         }
         val names = sources.map { it.name.ifBlank { "未命名数据源" } }
-        val checked = BooleanArray(sources.size) { false }
-
-        // 自定义可滚动列表：数据源很多时也能滑到底部
-        val maxH = (resources.displayMetrics.heightPixels * 0.6f).toInt()
-        val scroll = android.widget.ScrollView(this).apply {
+        val lv = android.widget.ListView(this).apply {
+            adapter = ArrayAdapter(
+                this@WidgetEditorActivity,
+                android.R.layout.simple_list_item_multiple_choice,
+                names
+            )
+            choiceMode = android.widget.ListView.CHOICE_MODE_MULTIPLE
             layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, maxH
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (resources.displayMetrics.heightPixels * 0.6f).toInt()
             )
         }
-        val list = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(24.dp(), 8.dp(), 24.dp(), 8.dp())
-        }
-        sources.forEachIndexed { i, _ ->
-            val cb = android.widget.CheckBox(this).apply {
-                text = names[i]
-                textSize = 15f
-                isChecked = false
-                setOnCheckedChangeListener { _, isChecked -> checked[i] = isChecked }
-            }
-            cb.layoutParams = android.widget.LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            list.addView(cb)
-        }
-        scroll.addView(list)
-
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.add_source_dialog_title)
-            .setView(scroll)
+            .setView(lv)
             .setNegativeButton(R.string.btn_cancel, null)
             .setPositiveButton(R.string.add_source_dialog_ok) { _, _ ->
+                val checked = BooleanArray(sources.size) { lv.isItemChecked(it) }
                 addElementsForSelectedSources(checked)
             }
             .show()
@@ -421,8 +448,7 @@ class WidgetEditorActivity : AppCompatActivity() {
 
     /** 为每个勾选的数据源添加一个文本元素 */
     private fun addElementsForSelectedSources(checked: BooleanArray) {
-        val dark = isDarkMode()
-        val ink = if (dark) "#E6E9F5" else "#1F2430"
+        val ink = "#E6E6E6"
         var added = 0
         sources.forEachIndexed { i, src ->
             if (!checked[i]) return@forEachIndexed
@@ -471,9 +497,16 @@ class WidgetEditorActivity : AppCompatActivity() {
     /** 把当前圆角值同步到滑块（-1 默认按 20dp 显示） */
     private fun syncCornerSeekbar() {
         val r = if (draft.cornerRadius >= 0) draft.cornerRadius else 20
-        binding.step4.seekCorner.progress = (r / 4).coerceIn(0, 8)
-        binding.step4.cornerValue.text =
-            if (r == 0) getString(R.string.corner_square) else "${r}dp"
+        val progress = (r / 8).coerceIn(0, 8)
+        binding.step4.seekCorner.progress = progress
+        binding.step4.cornerValue.text = cornerLabel(progress * 8)
+    }
+
+    /** 圆角文案：0=方形，64=圆形，中间显示 dp */
+    private fun cornerLabel(radius: Int): String = when (radius) {
+        0 -> getString(R.string.corner_square)
+        64 -> getString(R.string.corner_circle)
+        else -> "${radius}dp"
     }
 
     private fun rebuildCanvas() {
@@ -506,7 +539,7 @@ class WidgetEditorActivity : AppCompatActivity() {
             tv.textSize = el.fontSize.toFloat()
             tv.setTextColor(parseColorSafe(el.color))
             tv.maxLines = 4
-            if (i == sel) tv.setBackgroundColor(0x1A4F63F5)
+            if (i == sel) tv.setBackgroundColor(0x264CAF50)
             box.addView(tv)
 
             val handle = View(this)
@@ -628,7 +661,7 @@ class WidgetEditorActivity : AppCompatActivity() {
             val box = canvas.getChildAt(i) as? FrameLayout ?: continue
             val tag = box.tag as? Int ?: continue
             (box.getChildAt(0) as? TextView)?.let { tv ->
-                tv.setBackgroundColor(if (tag == sel) 0x1A4F63F5 else Color.TRANSPARENT)
+                tv.setBackgroundColor(if (tag == sel) 0x264CAF50 else Color.TRANSPARENT)
             }
             val handle = box.getChildAt(1) ?: continue
             handle.visibility = if (tag == sel) View.VISIBLE else View.GONE
@@ -782,11 +815,7 @@ class WidgetEditorActivity : AppCompatActivity() {
 
     private fun requestPinInner() {
         val awm = AppWidgetManager.getInstance(this)
-        val provider = ComponentName(
-            this,
-            if (draft.size == "2x2") FlowWidgetProvider2x2::class.java
-            else FlowWidgetProvider4x2::class.java
-        )
+        val provider = ComponentName(this, providerForSize(draft.size))
         if (awm.isRequestPinAppWidgetSupported) {
             val before = awm.getAppWidgetIds(provider).toSet()
             val callback = PendingIntent.getBroadcast(
@@ -844,10 +873,19 @@ class WidgetEditorActivity : AppCompatActivity() {
 
     // ================= 工具 =================
 
+    /** 尺寸 -> 桌面组件 Provider */
+    private fun providerForSize(size: String): Class<*> = when (size) {
+        "1x1" -> FlowWidgetProvider1x1::class.java
+        "1x2" -> FlowWidgetProvider1x2::class.java
+        "2x1" -> FlowWidgetProvider2x1::class.java
+        "2x2" -> FlowWidgetProvider2x2::class.java
+        else -> FlowWidgetProvider4x2::class.java
+    }
+
     private fun parseColorSafe(hex: String): Int = try {
         Color.parseColor(hex)
     } catch (e: IllegalArgumentException) {
-        Color.parseColor("#1F2430")
+        Color.parseColor("#1E1E1E")
     }
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()

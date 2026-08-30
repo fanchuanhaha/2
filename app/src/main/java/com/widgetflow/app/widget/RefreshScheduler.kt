@@ -13,12 +13,12 @@ import com.widgetflow.app.util.CrashLog
 import java.util.Calendar
 
 /**
- * 刷新调度：AlarmManager 每 30 分钟一次心跳（系统 updatePeriodMillis 下限），
+ * 刷新调度：AlarmManager 每 1 分钟一次心跳（支持最短 1 分钟刷新周期），
  * 心跳时检查每个组件是否到达自己的刷新周期。
  */
 object RefreshScheduler {
 
-    private const val HEARTBEAT_MS = 30 * 60 * 1000L
+    private const val HEARTBEAT_MS = 60 * 1000L
 
     fun ensureScheduled(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager

@@ -6,9 +6,9 @@
     <path android:pathData="M34,36h40a6,6 0 0 1 6,6v24a6,6 0 0 1 -6,6h-40a6,6 0 0 1 -6,-6v-24a6,6 0 0 1 6,-6z"
         android:fillColor="#FFFFFF" />
     <!-- 数据条 -->
-    <path android:pathData="M36,48h16v4h-16z" android:fillColor="#4F63F5" />
+    <path android:pathData="M36,48h16v4h-16z" android:fillColor="#4CAF50" />
     <path android:pathData="M36,56h26v3h-26z" android:fillColor="#9AA3BC" />
-    <path android:pathData="M36,63h12v3h-12z" android:fillColor="#14B8A6" />
+    <path android:pathData="M36,63h12v3h-12z" android:fillColor="#66BB6A" />
     <!-- 时间戳 -->
     <path android:pathData="M62,44h8v3h-8z" android:fillColor="#C9D0E8" />
     <path android:pathData="M72,44h4v3h-4z" android:fillColor="#C9D0E8" />
