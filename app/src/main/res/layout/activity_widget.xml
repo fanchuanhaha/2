@@ -79,7 +79,7 @@
                 android:id="@+id/inp_widget_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="例：桌面信息面板"
+                android:hint="可留空 · 保存时自动命名"
                 android:inputType="text"
                 android:textSize="14sp" />
 

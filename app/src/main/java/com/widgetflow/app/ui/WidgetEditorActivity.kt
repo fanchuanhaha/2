@@ -189,19 +189,7 @@ class WidgetEditorActivity : AppCompatActivity() {
                 Toast.makeText(this, "每组件最多 ${WidgetConfig.MAX_ELEMENTS} 个元素", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val first = sources.firstOrNull()
-            val alias = first?.rules?.getOrNull(0)?.alias
-            draft.elements.add(
-                Element(
-                    template = alias?.let { "{$it}" } ?: "新文本",
-                    fontSize = 10,
-                    color = if (isDarkMode()) "#E6E9F5" else "#1F2430",
-                    x = 30f, y = 50f,
-                    sourceId = first?.id ?: ""
-                )
-            )
-            sel = draft.elements.size - 1
-            renderEditor()
+            showAddSourceDialog()
         }
 
         binding.step4.btnDeleteElement.setOnClickListener {
@@ -339,7 +327,7 @@ class WidgetEditorActivity : AppCompatActivity() {
     private fun timeNow(): String =
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-    /** 按第一个数据源的规则生成默认元素 */
+    /** 按第一个数据源的规则生成默认元素（不含时间元素） */
     private fun buildDefaultElements() {
         val dark = isDarkMode()
         val ink = if (dark) "#E6E9F5" else "#1F2430"
@@ -352,7 +340,66 @@ class WidgetEditorActivity : AppCompatActivity() {
         first.rules.getOrNull(1)?.let {
             draft.elements.add(Element("—— {${it.alias}}", 9, muted, 6f, 64f, sourceId = first.id))
         }
-        draft.elements.add(Element("{time}", 7, "#9AA3BC", 70f, 87f, sourceId = first.id))
+        if (draft.elements.isEmpty()) {
+            draft.elements.add(Element("来自「${first.name}」", 13, ink, 6f, 12f, sourceId = first.id))
+        }
+    }
+
+    /** 弹窗勾选要添加的数据源（可多选），无需输名称 */
+    private fun showAddSourceDialog() {
+        if (sources.isEmpty()) {
+            Toast.makeText(this, R.string.hint_no_source_widget, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val names = sources.map { it.name.ifBlank { "未命名数据源" } }.toTypedArray()
+        val checked = BooleanArray(sources.size) { false }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.add_source_dialog_title)
+            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
+                checked[which] = isChecked
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .setPositiveButton(R.string.add_source_dialog_ok) { _, _ ->
+                addElementsForSelectedSources(checked)
+            }
+            .show()
+    }
+
+    /** 为每个勾选的数据源添加一个文本元素 */
+    private fun addElementsForSelectedSources(checked: BooleanArray) {
+        val dark = isDarkMode()
+        val ink = if (dark) "#E6E9F5" else "#1F2430"
+        var added = 0
+        sources.forEachIndexed { i, src ->
+            if (!checked[i]) return@forEachIndexed
+            if (draft.elements.size >= WidgetConfig.MAX_ELEMENTS) {
+                Toast.makeText(
+                    this, "每组件最多 ${WidgetConfig.MAX_ELEMENTS} 个元素", Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
+            val alias = src.rules.getOrNull(0)?.alias
+            val template = if (alias != null) "『{$alias}』" else "来自「${src.name}」"
+            val x = 6f + (draft.elements.size % 3) * 28f
+            val y = 12f + (draft.elements.size / 3) * 44f
+            draft.elements.add(
+                Element(
+                    template = template,
+                    fontSize = 13,
+                    color = ink,
+                    x = x, y = y,
+                    sourceId = src.id
+                )
+            )
+            added++
+        }
+        if (added > 0) {
+            sel = draft.elements.size - 1
+            renderEditor()
+            Toast.makeText(
+                this, getString(R.string.toast_sources_added, added), Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     private fun renderEditor() {
@@ -621,7 +668,11 @@ class WidgetEditorActivity : AppCompatActivity() {
 
     private fun saveInner() {
         draft.name = binding.inpWidgetName.text.toString().trim()
-        if (draft.name.isBlank()) draft.name = "桌面小部件"
+        if (draft.name.isBlank()) {
+            draft.name = draft.elements.mapNotNull { el ->
+                SourceStore.find(this, el.sourceId)?.name?.takeIf { it.isNotBlank() }
+            }.distinct().take(2).joinToString(" + ").ifBlank { "桌面小部件" }
+        }
         if (draft.elements.isEmpty()) {
             Toast.makeText(this, R.string.toast_need_element, Toast.LENGTH_SHORT).show()
             return

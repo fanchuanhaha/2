@@ -69,7 +69,11 @@
     <string name="label_refresh">自动刷新</string>
     <string name="btn_delete_element">删除该元素</string>
     <string name="btn_reset_size">自适应大小</string>
-    <string name="add_element">+ 添加文本元素</string>
+    <string name="add_element">+ 添加数据源</string>
+    <string name="add_source_dialog_title">选择要添加的数据源（可多选）</string>
+    <string name="add_source_dialog_ok">添加</string>
+    <string name="btn_cancel">取消</string>
+    <string name="toast_sources_added">已添加 %1$d 个数据源</string>
     <string name="sec_source">① 数据源</string>
     <string name="sec_preview">② 测试结果</string>
     <string name="sec_extract">③ 字段抽取</string>
