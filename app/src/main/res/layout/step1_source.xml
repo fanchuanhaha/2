@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/preset_hitokoto"
+            style="@style/Widget.Material3.Button.OutlinedButton.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/preset_hitokoto" />
+
+        <Button
+            android:id="@+id/preset_text"
+            style="@style/Widget.Material3.Button.OutlinedButton.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:text="@string/preset_text" />
+
+        <Button
+            android:id="@+id/preset_custom"
+            style="@style/Widget.Material3.Button.OutlinedButton.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:text="@string/preset_custom" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/TextAppearance.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/label_name" />
+
+    <EditText
+        android:id="@+id/inp_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/hint_name"
+        android:inputType="text"
+        android:textSize="14sp" />
+
+    <TextView
+        style="@style/TextAppearance.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/label_method_url" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/spin_method"
+            android:layout_width="92dp"
+            android:layout_height="wrap_content"
+            android:entries="@array/methods" />
+
+        <EditText
+            android:id="@+id/inp_url"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:hint="@string/hint_url"
+            android:inputType="textUri"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <TextView
+        style="@style/TextAppearance.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/label_params" />
+
+    <LinearLayout
+        android:id="@+id/box_params"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <Button
+        android:id="@+id/btn_add_param"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-4dp"
+        android:text="@string/add_param"
+        android:textSize="13sp" />
+
+    <TextView
+        style="@style/TextAppearance.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/label_headers" />
+
+    <LinearLayout
+        android:id="@+id/box_headers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+
+    <Button
+        android:id="@+id/btn_add_header"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-4dp"
+        android:text="@string/add_header"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/label_body"
+        style="@style/TextAppearance.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/label_body"
+        android:visibility="gone" />
+
+    <EditText
+        android:id="@+id/inp_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:inputType="textMultiLine"
+        android:minLines="2"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <TextView
+        style="@style/TextAppearance.Label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/label_timeout" />
+
+    <Spinner
+        android:id="@+id/spin_timeout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:entries="@array/timeouts" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/status_pill"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/status_need_test"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_test"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_test" />
+    </LinearLayout>
+</LinearLayout>

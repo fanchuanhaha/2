@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+*/build/
+captures/
+
+# Local configuration (SDK path, signing secrets)
+local.properties
+keystore.jks
+keystore.properties
+*.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Logs
+*.log
+
+# Other
+.kotlin/

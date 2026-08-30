@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WidgetFlow</string>
+    <string name="widget_label_4x2">WidgetFlow · 4x2</string>
+    <string name="widget_label_2x2">WidgetFlow · 2x2</string>
+
+    <string name="title_my_configs">我的配置</string>
+    <string name="hint_empty_list">还没有配置\n点右下角 ＋ 新建一个数据源</string>
+    <string name="btn_edit">编辑</string>
+    <string name="btn_delete">删除</string>
+    <string name="btn_export">导出</string>
+    <string name="menu_import">导入配置包</string>
+    <string name="menu_export_hint">导出会复制配置 JSON 到剪贴板</string>
+    <string name="menu_log">查看运行日志</string>
+
+    <string name="pick_banner">选择要展示到桌面组件的配置</string>
+
+    <string name="wz_title_new">新建数据源</string>
+    <string name="wz_title_edit">编辑配置</string>
+    <string name="wz_step1_subtitle">步骤 1 / 4 · 请求定义</string>
+    <string name="wz_step2_subtitle">步骤 2 / 4 · 测试结果</string>
+    <string name="wz_step3_subtitle">步骤 3 / 4 · 字段抽取</string>
+    <string name="wz_step4_subtitle">步骤 4 / 4 · 拖拽排版</string>
+
+    <string name="preset_hitokoto">一言 API</string>
+    <string name="preset_text">纯文本</string>
+    <string name="preset_custom">自定义</string>
+    <string name="label_name">数据源名称</string>
+    <string name="label_method_url">请求方法与 URL</string>
+    <string name="label_params">查询参数（追加到 URL）</string>
+    <string name="label_headers">请求头</string>
+    <string name="label_body">请求体（POST）</string>
+    <string name="label_timeout">超时时间</string>
+    <string name="add_param">+ 添加参数</string>
+    <string name="add_header">+ 添加请求头</string>
+    <string name="btn_test">发送测试请求</string>
+    <string name="btn_retest">重新测试</string>
+    <string name="btn_prev">上一步</string>
+    <string name="btn_next">下一步</string>
+    <string name="btn_save">保存并添加到桌面</string>
+    <string name="status_testing">测试中…</string>
+    <string name="status_need_test">需测试通过后才能进入下一步</string>
+    <string name="status_modified">配置已修改，需重新测试</string>
+
+    <string name="label_response_json">响应内容</string>
+    <string name="label_tree_hint">点击 JSON 字段名生成抽取规则</string>
+    <string name="label_text_response">响应原文（非 JSON，可用正则抽取）</string>
+    <string name="label_regex_pattern">正则表达式（首匹配，可用 () 捕获组）</string>
+    <string name="hint_regex">如 ^(.+)$ 或 作者：(.*)</string>
+    <string name="hint_regex_alias">别名</string>
+    <string name="add_regex_rule">添加正则规则</string>
+    <string name="add_text_rule">+ 整段文本作为一条规则</string>
+    <string name="label_rules">抽取规则 · 模板中以 {别名} 引用</string>
+    <string name="label_template">文本模板</string>
+    <string name="label_font_size">字号</string>
+    <string name="label_color">颜色</string>
+    <string name="label_refresh">自动刷新</string>
+    <string name="btn_delete_element">删除该元素</string>
+    <string name="add_element">+ 添加文本元素</string>
+    <string name="size_4x2">4x2</string>
+    <string name="size_2x2">2x2</string>
+    <string name="hint_url">https://v1.hitokoto.cn/</string>
+    <string name="hint_name">例：一言 · 每日句子</string>
+    <string name="hint_key">键</string>
+    <string name="hint_value">值</string>
+    <string name="row_delete">删除</string>
+
+    <string name="widget_placeholder">点按选择要展示的配置</string>
+    <string name="widget_no_data">点按打开 WidgetFlow 完成配置</string>
+    <string name="widget_refreshing">刷新中…</string>
+    <string name="widget_wait_retry">等待重试</string>
+    <string name="badge_error">!</string>
+
+    <string name="import_dialog_title">导入配置包</string>
+    <string name="import_dialog_hint">粘贴 wfw/1 格式的 JSON 文本</string>
+    <string name="import_ok">导入成功</string>
+    <string name="import_fail">导入失败：%1$s</string>
+    <string name="export_ok">配置已复制到剪贴板</string>
+    <string name="toast_saved">已保存，「%1$s」可添加到桌面</string>
+    <string name="toast_need_test">请先通过测试请求</string>
+    <string name="toast_offline">当前无网络连接</string>
+    <string name="toast_refresh_ok">已更新 · %1$s</string>
+    <string name="toast_refresh_fail">刷新失败，已保留上次数据</string>
+    <string name="toast_deleted">已删除「%1$s」</string>
+    <string name="toast_widget_assigned">「%1$s」已关联到该组件</string>
+    <string name="toast_need_rule">至少配置一条抽取规则</string>
+    <string name="toast_need_element">至少保留一个元素</string>
+    <string name="toast_alias_missing">模板中的别名不存在：%1$s</string>
+</resources>

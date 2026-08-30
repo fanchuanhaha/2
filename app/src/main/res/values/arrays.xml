@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="methods">
+        <item>GET</item>
+        <item>POST</item>
+    </string-array>
+    <string-array name="timeouts">
+        <item>5 秒</item>
+        <item>10 秒</item>
+        <item>20 秒</item>
+        <item>30 秒</item>
+    </string-array>
+    <string-array name="refresh_options">
+        <item>每 30 分钟（系统下限）</item>
+        <item>每 1 小时</item>
+        <item>每 6 小时</item>
+        <item>每天 8:00</item>
+    </string-array>
+</resources>

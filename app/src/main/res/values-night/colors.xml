@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#12141F</color>
+    <color name="surface">#1C2030</color>
+    <color name="ink">#E6E9F5</color>
+    <color name="muted">#9AA3BC</color>
+    <color name="rule">#2A3050</color>
+    <color name="accent">#6E7DFB</color>
+    <color name="accent_light">#2A3150</color>
+    <color name="accent2">#2CC4B2</color>
+    <color name="ok">#3FC7B3</color>
+    <color name="ok_light">#1D3A35</color>
+    <color name="err">#E56A6A</color>
+    <color name="err_light">#402426</color>
+    <color name="warn">#E0A54B</color>
+    <color name="ink_dark">#E6E9F5</color>
+    <color name="text_soft">#8A94B0</color>
+    <color name="widget_badge">#E56A6A</color>
+    <color name="widget_time">#8A94B0</color>
+    <color name="widget_bg_color">#1A1E2E</color>
+    <color name="canvas_wrap">#0E1226</color>
+    <color name="chip_off_bg">#252B44</color>
+</resources>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.WidgetFlow" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">@color/accent_light</item>
+        <item name="colorOnPrimaryContainer">@color/accent</item>
+        <item name="colorSecondary">@color/accent2</item>
+        <item name="colorSecondaryContainer">#D9F5F1</item>
+        <item name="colorOnSecondaryContainer">#0B5F56</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/ink</item>
+    </style>
+
+    <style name="TextAppearance.Label" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Widget.Material3.Button.OutlinedButton.Small" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textSize">12sp</item>
+        <item name="android:minHeight">34dp</item>
+        <item name="android:paddingLeft">14dp</item>
+        <item name="android:paddingRight">14dp</item>
+    </style>
+</resources>
