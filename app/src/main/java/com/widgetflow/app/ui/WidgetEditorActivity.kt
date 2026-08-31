@@ -389,17 +389,31 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    /** 画布宽高：固定放大 EDIT_ZOOM 倍（最大尺寸 4x2 受屏幕宽度限制），比例与桌面 widget_info 完全一致 */
+    /** 画布宽高：保留原大尺寸便于拖动；字号/圆角按画布与真实尺寸的比值（designScale）等比缩放 */
     private fun canvasSizeFor(size: String, availW: Int): Pair<Int, Int> {
-        val density = resources.displayMetrics.density
-        val availWdp = (availW / density).coerceAtLeast(1f)
-        // 统一 1.5 倍缩放：既不比桌面/列表大太多，也便于拖拽编辑；4x2 不超宽
-        val zoom = 1.5f.coerceAtMost(availWdp / 250f)
-        val (rw, rh) = actualSizeDp(size)
-        return Pair(
-            (rw * zoom * density).toInt().coerceAtLeast(40),
-            (rh * zoom * density).toInt().coerceAtLeast(40)
-        )
+        val screenH = resources.displayMetrics.heightPixels
+        return when (size) {
+            "1x1" -> {
+                val w = (availW * 0.55f).toInt()
+                Pair(w, w)
+            }
+            "1x2" -> {
+                val w = (availW * 0.4f).toInt()
+                Pair(w, (w * 110f / 40f).toInt().coerceAtMost((screenH * 0.7f).toInt()))
+            }
+            "2x1" -> {
+                val w = availW
+                Pair(w, (w * 40f / 90f).toInt())
+            }
+            "2x2" -> {
+                val w = availW
+                Pair(w, (w * 110f / 140f).toInt())
+            }
+            else -> { // 4x2
+                val w = availW
+                Pair(w, (w * 110f / 250f).toInt())
+            }
+        }
     }
 
     /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 的 minWidth/minHeight 一致 */
