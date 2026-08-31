@@ -1,5 +1,6 @@
 package com.widgetflow.app.ui
 
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -65,40 +66,43 @@ class WidgetAdapter(
         renderPreview(holder, c)
     }
 
-    /** 用与桌面完全一致的 RemoteViews 渲染真实预览 */
+    /** 用与桌面完全一致的 RemoteViews 渲染真实预览（按小部件实际尺寸等比缩小，文字也随比例缩放） */
     private fun renderPreview(holder: VH, c: WidgetConfig) {
         val box = holder.binding.previewBox
         val ctx = box.context
         box.post {
-            val w = box.width
-            if (w <= 0) return@post
+            val cellW = box.width
+            if (cellW <= 0) return@post
             val density = ctx.resources.displayMetrics.density
+            // 该尺寸在桌面上的实际大小（dp），与 widget_info 的 minWidth/minHeight 一致
+            val (wDp, hDp) = actualSizeDp(c.size)
+            val wPx = (wDp * density).toInt()
+            val hPx = (hDp * density).toInt()
+            if (wPx <= 0 || hPx <= 0) return@post
+            // 整体等比缩放到单元格宽度（同时缩放文字，保证与桌面效果一致）
             val maxH = (210 * density).toInt()
-            val ratio = aspectRatio(c.size) // 高 / 宽
-            var h = (w * ratio).toInt()
-            var wPx = w
-            if (h > maxH) {
-                h = maxH
-                wPx = (maxH / ratio).toInt()
-            }
-            if (wPx <= 0 || h <= 0) return@post
+            var scale = cellW.toFloat() / wPx
+            if ((hPx * scale).toInt() > maxH) scale = maxH.toFloat() / hPx
+            val dispW = (wPx * scale).toInt().coerceAtLeast(1)
+            val dispH = (hPx * scale).toInt().coerceAtLeast(1)
             box.layoutParams = box.layoutParams.apply {
-                this.width = wPx
-                this.height = h
+                width = dispW
+                height = dispH
             }
             box.requestLayout()
             try {
-                val rv = WidgetUpdater.buildRemoteViews(ctx, c, wPx, h)
+                val rv = WidgetUpdater.buildRemoteViews(ctx, c, wPx, hPx)
                 // 必须用 applicationContext 的普通 LayoutInflater 展开：
                 // 若用 Activity 上下文会膨胀成 AppCompat 视图，RemoteViews 反射 setImageBitmap 会失败崩溃
                 val view = rv.apply(ctx.applicationContext, null)
+                view.pivotX = 0f
+                view.pivotY = 0f
+                view.scaleX = scale
+                view.scaleY = scale
                 box.removeAllViews()
                 box.addView(
                     view,
-                    FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                    )
+                    FrameLayout.LayoutParams(wPx, hPx, Gravity.TOP or Gravity.START)
                 )
             } catch (e: Exception) {
                 // 预览失败不崩溃：仅显示名称
@@ -110,13 +114,13 @@ class WidgetAdapter(
     class VH(val binding: ItemWidgetGridBinding) : RecyclerView.ViewHolder(binding.root)
 
     companion object {
-        /** 各尺寸组件的高宽比（与 widget_info 的 minWidth/minHeight 一致） */
-        private fun aspectRatio(size: String): Float = when (size) {
-            "1x1" -> 1f
-            "1x2" -> 110f / 40f
-            "2x1" -> 40f / 90f
-            "2x2" -> 110f / 140f
-            else -> 110f / 250f
+        /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 的 minWidth/minHeight 一致 */
+        private fun actualSizeDp(size: String): Pair<Int, Int> = when (size) {
+            "1x1" -> 40 to 40
+            "1x2" -> 40 to 110
+            "2x1" -> 90 to 40
+            "2x2" -> 140 to 110
+            else -> 250 to 110 // 4x2
         }
     }
 }
