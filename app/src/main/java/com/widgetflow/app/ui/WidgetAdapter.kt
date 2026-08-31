@@ -13,13 +13,13 @@ import com.widgetflow.app.widget.WidgetUpdater
 
 /**
  * 小部件网格适配器：每个单元用与桌面完全一致的 RemoteViews 渲染真实预览，
- * 上面显示实际效果，下面显示名称。选择模式（onPick != null）时隐藏编辑/导出/删除按钮，
+ * 上面显示实际效果，下面显示名称。选择模式（onPick != null）时隐藏编辑/添加/删除按钮，
  * 点按单元直接关联到新添加的桌面组件。
  */
 class WidgetAdapter(
     private val onEdit: (String) -> Unit,
     private val onDelete: (WidgetConfig) -> Unit,
-    private val onExport: (WidgetConfig) -> Unit,
+    private val onAdd: (WidgetConfig) -> Unit,
     private val onPick: ((WidgetConfig) -> Unit)?
 ) : RecyclerView.Adapter<WidgetAdapter.VH>() {
 
@@ -42,7 +42,6 @@ class WidgetAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val c = items[position]
-        val ctx = holder.binding.root.context
 
         holder.binding.cellName.text = c.name.ifBlank { "未命名小部件" }
         val status = if (c.lastUpdatedAt > 0) {
@@ -58,7 +57,7 @@ class WidgetAdapter(
         holder.binding.cellActions.visibility = if (pick != null) View.GONE else View.VISIBLE
         holder.binding.btnEdit.setOnClickListener { onEdit(c.id) }
         holder.binding.btnDelete.setOnClickListener { onDelete(c) }
-        holder.binding.btnExport.setOnClickListener { onExport(c) }
+        holder.binding.btnAdd.setOnClickListener { onAdd(c) }
         holder.binding.root.setOnClickListener {
             if (pick != null) pick(c) else onEdit(c.id)
         }

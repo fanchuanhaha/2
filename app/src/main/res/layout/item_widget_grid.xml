@@ -66,13 +66,14 @@
                 android:textSize="12sp" />
 
             <Button
-                android:id="@+id/btn_export"
+                android:id="@+id/btn_add"
                 style="@style/Widget.Material3.Button.OutlinedButton.Small"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="6dp"
                 android:minWidth="0dp"
-                android:text="@string/btn_export"
+                android:text="@string/btn_add"
+                android:textColor="@color/ok"
                 android:textSize="12sp" />
 
             <Button

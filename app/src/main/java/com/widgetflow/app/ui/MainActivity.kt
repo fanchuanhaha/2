@@ -1,10 +1,15 @@
 package com.widgetflow.app.ui
 
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.widget.TextView
 import android.widget.Toast
@@ -25,6 +30,12 @@ import com.widgetflow.app.net.ApiResult
 import com.widgetflow.app.storage.ConfigStore
 import com.widgetflow.app.storage.SourceStore
 import com.widgetflow.app.util.CrashLog
+import com.widgetflow.app.widget.FlowWidgetProvider1x1
+import com.widgetflow.app.widget.FlowWidgetProvider1x2
+import com.widgetflow.app.widget.FlowWidgetProvider2x1
+import com.widgetflow.app.widget.FlowWidgetProvider2x2
+import com.widgetflow.app.widget.FlowWidgetProvider4x2
+import com.widgetflow.app.widget.PinResultReceiver
 import com.widgetflow.app.widget.WidgetUpdater
 
 class MainActivity : AppCompatActivity() {
@@ -74,7 +85,7 @@ class MainActivity : AppCompatActivity() {
                 )
             },
             onDelete = { w -> confirmDeleteWidget(w) },
-            onExport = { w -> exportWidget(w) },
+            onAdd = { w -> addWidgetToDesktop(w) },
             onPick = if (pickWidgetId >= 0) ({ w -> assignWidget(w) }) else null
         )
         binding.widgetRecycler.layoutManager = GridLayoutManager(this, 2)
@@ -248,10 +259,78 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun exportWidget(widget: WidgetConfig) {
-        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("WidgetFlow widget", ConfigStore.exportJson(widget)))
-        Toast.makeText(this, R.string.export_ok, Toast.LENGTH_SHORT).show()
+    /** 把已有小部件添加到桌面：调用系统 requestPinAppWidget（API 26+，需启动器支持） */
+    private fun addWidgetToDesktop(widget: WidgetConfig) {
+        val w = ConfigStore.find(this, widget.id) ?: return
+        try {
+            val awm = AppWidgetManager.getInstance(this)
+            val provider = ComponentName(this, providerForSize(w.size))
+            if (awm.isRequestPinAppWidgetSupported) {
+                val before = awm.getAppWidgetIds(provider).toSet()
+                val callback = PendingIntent.getBroadcast(
+                    this, 50001 + (w.id.hashCode() and 0xFFFF),
+                    Intent(this, PinResultReceiver::class.java).putExtra("configId", w.id),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val ok = awm.requestPinAppWidget(provider, null, callback)
+                CrashLog.write(this, "requestPin", "supported=true ok=$ok size=${w.size}")
+                schedulePinVerify(provider, w.id, before)
+                Toast.makeText(
+                    this,
+                    getString(R.string.toast_confirm_pin, w.name),
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                CrashLog.write(this, "requestPin", "supported=false")
+                Toast.makeText(
+                    this,
+                    getString(R.string.toast_pin_manual, w.name),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } catch (t: Throwable) {
+            CrashLog.e(this, "requestPinWidget", t)
+            Toast.makeText(this, "无法添加到桌面，请在桌面手动添加小组件", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** 轮询 requestPinAppWidget 后新出现的组件 ID，自动关联配置并渲染（兼容 -1 回调） */
+    private fun schedulePinVerify(provider: ComponentName, configId: String, before: Set<Int>) {
+        val app = applicationContext
+        val check = Runnable {
+            try {
+                val awm = AppWidgetManager.getInstance(app)
+                val now = awm.getAppWidgetIds(provider).toSet()
+                val newIds = now - before
+                CrashLog.write(app, "pinVerify", "new=${newIds.size} ids=$newIds")
+                newIds.forEach { wid ->
+                    val c = ConfigStore.find(app, configId) ?: return@forEach
+                    if (wid >= 0 && !c.widgetIds.contains(wid)) {
+                        c.widgetIds.add(wid)
+                        ConfigStore.save(app, c)
+                        WidgetUpdater.updateNow(app, wid)
+                        CrashLog.write(app, "pinVerify", "关联成功 widget=$wid config=$configId")
+                    }
+                }
+            } catch (t: Throwable) {
+                CrashLog.e(app, "pinVerify", t)
+            }
+        }
+        val h = Handler(Looper.getMainLooper())
+        h.postDelayed(check, 6000)
+        h.postDelayed(check, 15000)
+        h.postDelayed(check, 30000)
+        h.postDelayed(check, 60000)
+        h.postDelayed(check, 120000)
+    }
+
+    /** 尺寸 -> 桌面组件 Provider */
+    private fun providerForSize(size: String): Class<*> = when (size) {
+        "1x1" -> FlowWidgetProvider1x1::class.java
+        "1x2" -> FlowWidgetProvider1x2::class.java
+        "2x1" -> FlowWidgetProvider2x1::class.java
+        "2x2" -> FlowWidgetProvider2x2::class.java
+        else -> FlowWidgetProvider4x2::class.java
     }
 
     // ================= 导入 / 日志 =================

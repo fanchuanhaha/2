@@ -236,7 +236,10 @@ data class WidgetConfig(
                 val savedId = root.optString("id", "").trim()
                 val c = WidgetConfig(id = if (savedId.isNotBlank()) savedId else newId())
                 c.name = root.optString("name", "小部件")
-                c.size = if (w.optString("size") == "2x2") "2x2" else "4x2"
+                // 保留配置的尺寸（1x1/1x2/2x1/2x2/4x2），非法值回退 4x2
+                c.size = w.optString("size", "4x2").takeIf {
+                    it in setOf("1x1", "1x2", "2x1", "2x2", "4x2")
+                } ?: "4x2"
                 c.refreshMinutes = w.optInt("refreshMinutes", 60)
                 c.bgColor = w.optString("bgColor", "")
                 c.cornerRadius = w.optInt("cornerRadius", -1)

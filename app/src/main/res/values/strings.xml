@@ -14,10 +14,13 @@
     <string name="hint_empty_widgets">还没有小部件\n请先创建数据源，再点右下角 ＋ 新建小部件\n一个组件可同时引用多个数据源</string>
     <string name="btn_edit">编辑</string>
     <string name="btn_delete">删除</string>
+    <string name="btn_add">添加</string>
     <string name="btn_export">导出</string>
     <string name="menu_import">导入配置包</string>
     <string name="menu_export_hint">导出会复制配置 JSON 到剪贴板</string>
     <string name="menu_log">查看运行日志</string>
+    <string name="toast_confirm_pin">请在桌面确认添加「%1$s」</string>
+    <string name="toast_pin_manual">「%1$s」已在桌面长按 → 小组件 → WidgetFlow 中，请手动添加</string>
 
     <string name="pick_banner">点按一个小部件即可绑定（任意尺寸均可，大小以桌面放置为准）</string>
 
