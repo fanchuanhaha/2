@@ -1,6 +1,5 @@
 package com.widgetflow.app.ui
 
-import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -114,24 +113,8 @@ class WidgetAdapter(
     }
 
     /** 已放置到桌面时读取其真实尺寸（dp），否则回退到该尺寸的默认大小 */
-    private fun actualDesktopSize(ctx: Context, c: WidgetConfig): Pair<Int, Int> {
-        for (wid in c.widgetIds) {
-            try {
-                val opts = AppWidgetManager.getInstance(ctx).getAppWidgetOptions(wid)
-                val w = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-                val h = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-                if (w > 0 && h > 0) return w to h
-            } catch (t: Throwable) {
-                // 组件已被移除等情况：忽略并尝试下一个
-            }
-        }
-        return actualSizeDp(c.size)
-    }
+    private fun actualDesktopSize(ctx: Context, c: WidgetConfig): Pair<Int, Int> =
+        WidgetUpdater.actualDesktopSizeDp(ctx, c)
 
     class VH(val binding: ItemWidgetGridBinding) : RecyclerView.ViewHolder(binding.root)
-
-    companion object {
-        /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 一致 */
-        private fun actualSizeDp(size: String): Pair<Int, Int> = WidgetConfig.realSizeDp(size)
-    }
 }

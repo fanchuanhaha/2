@@ -323,6 +323,25 @@ object WidgetUpdater {
         ids.forEach { render(context, it) }
     }
 
+    /**
+     * 组件在桌面上的实际尺寸（dp，宽高）：
+     * 优先读取已放置组件的真实尺寸（含手动缩放），否则用 widget_info 标称尺寸。
+     * App 列表预览与编辑画布共用，保证两者比例一致。
+     */
+    fun actualDesktopSizeDp(context: Context, c: WidgetConfig): Pair<Int, Int> {
+        for (wid in c.widgetIds) {
+            try {
+                val opts = AppWidgetManager.getInstance(context).getAppWidgetOptions(wid)
+                val w = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+                val h = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+                if (w > 0 && h > 0) return w to h
+            } catch (t: Throwable) {
+                // 组件已被移除等情况：忽略并尝试下一个
+            }
+        }
+        return WidgetConfig.realSizeDp(c.size)
+    }
+
     fun formatTime(t: Long): String =
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(t))
 }

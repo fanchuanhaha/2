@@ -391,29 +391,27 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    /** 画布宽高：保留原大尺寸便于拖动；字号/圆角按画布与真实尺寸的比值（designScale）等比缩放 */
+    /**
+     * 画布宽高：保留原大尺寸便于拖动；
+     * 宽高比用「组件在桌面上的实际尺寸」（已放置则读真实尺寸，否则标称），
+     * 与 App 列表预览一致，避免 2x2 等实际偏长时编辑画布比例不对。
+     */
     private fun canvasSizeFor(size: String, availW: Int): Pair<Int, Int> {
         val screenH = resources.displayMetrics.heightPixels
+        val (aw, ah) = WidgetUpdater.actualDesktopSizeDp(this, draft)
+        val ratio = ah.toFloat() / aw.toFloat()
         return when (size) {
             "1x1" -> {
                 val w = (availW * 0.55f).toInt()
-                Pair(w, w)
+                Pair(w, (w * ratio).toInt())
             }
             "1x2" -> {
                 val w = (availW * 0.4f).toInt()
-                Pair(w, (w * 110f / 40f).toInt().coerceAtMost((screenH * 0.7f).toInt()))
+                Pair(w, (w * ratio).toInt().coerceAtMost((screenH * 0.7f).toInt()))
             }
-            "2x1" -> {
+            else -> {
                 val w = availW
-                Pair(w, (w * 40f / 90f).toInt())
-            }
-            "2x2" -> {
-                val w = availW
-                Pair(w, (w * 110f / 140f).toInt())
-            }
-            else -> { // 4x2
-                val w = availW
-                Pair(w, (w * 110f / 250f).toInt())
+                Pair(w, (w * ratio).toInt())
             }
         }
     }
