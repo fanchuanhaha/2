@@ -78,6 +78,10 @@ class WidgetEditorActivity : AppCompatActivity() {
     // 调整大小预览框（拖动期间只更新这个框，松手后再应用，避免卡顿）
     private var resizePreview: View? = null
 
+    // 画布预期尺寸（dp）：布局完成后写入，用于计算字号缩放与元素定位，避免依赖测量时序
+    private var canvasWdp = 0f
+    private var canvasHdp = 0f
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWidgetBinding.inflate(layoutInflater)
@@ -377,7 +381,11 @@ class WidgetEditorActivity : AppCompatActivity() {
             val (w, h) = canvasSizeFor(draft.size, availW)
             canvas.layoutParams.width = w
             canvas.layoutParams.height = h
+            canvasWdp = w / resources.displayMetrics.density
+            canvasHdp = h / resources.displayMetrics.density
             canvas.requestLayout()
+            // 布局尺寸确定后必须重绘：否则首帧/切尺寸后字号缩放仍用旧值，文字比例会错
+            rebuildCanvas()
         }
     }
 
@@ -420,15 +428,34 @@ class WidgetEditorActivity : AppCompatActivity() {
     /**
      * 编辑画布相对真实桌面尺寸的放大系数：字号/圆角按此放大，
      * 使编辑预览的视觉比例 = 桌面实际效果 = App 列表预览（三者一致）。
+     * 使用「预期画布宽度」而非测量宽度，避免布局时序导致的错误。
      */
     private fun designScale(): Float {
-        val canvas = binding.step4.canvas
-        val w = canvas.width
-        if (w <= 0) return 1f
         val density = resources.displayMetrics.density
         val (realW, _) = actualSizeDp(draft.size)
         if (realW <= 0) return 1f
-        return (w / density) / realW
+        if (canvasWdp <= 0f) {
+            // 画布宽度还没确定：按可用宽度估算一次（布局完成后 applyCanvasWidth 会校正并重绘）
+            val wrap = binding.step4.canvas.parent as? FrameLayout
+            val availW = wrap?.width ?: 0
+            if (availW <= 0) return 1f
+            val (w, _) = canvasSizeFor(draft.size, availW)
+            canvasWdp = w / density
+        }
+        return canvasWdp / realW
+    }
+
+    /** 画布预期像素尺寸（宽,高），与字号缩放同一套坐标 */
+    private fun canvasPx(): Pair<Int, Int> {
+        val density = resources.displayMetrics.density
+        return (canvasWdp * density).toInt().coerceAtLeast(1) to
+            (canvasHdp * density).toInt().coerceAtLeast(1)
+    }
+
+    /** 调整大小的最大范围（画布内） */
+    private fun canvasMaxSize(l: Int, t: Int): Pair<Int, Int> {
+        val (w, h) = canvasPx()
+        return (w - l).coerceAtLeast(24) to (h - t).coerceAtLeast(20)
     }
 
     /** 某元素的预览文本：取其数据源的 aliasMap */
@@ -615,20 +642,22 @@ class WidgetEditorActivity : AppCompatActivity() {
     }
 
     private fun positionView(box: View, tv: TextView, el: Element) {
-        val canvas = binding.step4.canvas
+        val density = resources.displayMetrics.density
         fun apply() {
+            // 用预期画布尺寸（dp）换算像素，保证与字号缩放同一套坐标，不受布局时序影响
+            val (cw, ch) = canvasPx()
             val lp = box.layoutParams as FrameLayout.LayoutParams
-            lp.leftMargin = (el.x / 100f * canvas.width).toInt()
-            lp.topMargin = (el.y / 100f * canvas.height).toInt()
+            lp.leftMargin = (el.x / 100f * cw).toInt()
+            lp.topMargin = (el.y / 100f * ch).toInt()
             val tvLp = tv.layoutParams as FrameLayout.LayoutParams
-            tvLp.width = if (el.width > 0f) (el.width / 100f * canvas.width).toInt().coerceAtLeast(20)
+            tvLp.width = if (el.width > 0f) (el.width / 100f * cw).toInt().coerceAtLeast(20)
             else ViewGroup.LayoutParams.WRAP_CONTENT
-            tvLp.height = if (el.height > 0f) (el.height / 100f * canvas.height).toInt().coerceAtLeast(20)
+            tvLp.height = if (el.height > 0f) (el.height / 100f * ch).toInt().coerceAtLeast(20)
             else ViewGroup.LayoutParams.WRAP_CONTENT
             tv.requestLayout()
             box.requestLayout()
         }
-        if (canvas.width > 0) apply() else canvas.post { apply() }
+        if (canvasWdp > 0f) apply() else binding.step4.canvas.post { apply() }
     }
 
     /** 元素拖动：按住元素块的任意位置即可拖动（平移式更新，避免每帧重排导致卡顿） */
@@ -656,8 +685,7 @@ class WidgetEditorActivity : AppCompatActivity() {
                     // 触摸容差：未超过阈值视为“点击选中”，不移动元素
                     if (!moved && dx * dx + dy * dy < 64f) return@setOnTouchListener true
                     moved = true
-                    val w = binding.step4.canvas.width
-                    val h = binding.step4.canvas.height
+                    val (w, h) = canvasPx()
                     val nx = (dragL + dx.toInt())
                         .coerceIn(0, (w - v.width).coerceAtLeast(0))
                     val ny = (dragT + dy.toInt())
@@ -668,8 +696,7 @@ class WidgetEditorActivity : AppCompatActivity() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (moved) {
-                        val w = binding.step4.canvas.width
-                        val h = binding.step4.canvas.height
+                        val (w, h) = canvasPx()
                         if (w > 0 && h > 0) {
                             val lp = v.layoutParams as FrameLayout.LayoutParams
                             lp.leftMargin = dragL + v.translationX.toInt()
@@ -712,8 +739,7 @@ class WidgetEditorActivity : AppCompatActivity() {
                     val lp = box.layoutParams as FrameLayout.LayoutParams
                     startL = lp.leftMargin
                     startT = lp.topMargin
-                    val w = binding.step4.canvas.width
-                    val h = binding.step4.canvas.height
+                    val (w, h) = canvasPx()
                     startW = if (el.width > 0f) (el.width / 100f * w).toInt()
                     else tv.width.coerceAtLeast(30)
                     startH = if (el.height > 0f) (el.height / 100f * h).toInt()
@@ -725,22 +751,19 @@ class WidgetEditorActivity : AppCompatActivity() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - sx).toInt()
                     val dy = (event.rawY - sy).toInt()
-                    val maxW = (binding.step4.canvas.width - startL).coerceAtLeast(24)
-                    val maxH = (binding.step4.canvas.height - startT).coerceAtLeast(20)
-                    val nw = (startW + dx).coerceIn(24, maxW)
-                    val nh = (startH + dy).coerceIn(20, maxH)
+                    val (maxW_, maxH_) = canvasMaxSize(startL, startT)
+                    val nw = (startW + dx).coerceIn(24, maxW_)
+                    val nh = (startH + dy).coerceIn(20, maxH_)
                     showResizePreview(startL, startT, nw, nh)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    val w = binding.step4.canvas.width
-                    val h = binding.step4.canvas.height
+                    val (w, h) = canvasPx()
                     val dx = (event.rawX - sx).toInt()
                     val dy = (event.rawY - sy).toInt()
-                    val maxW = (w - startL).coerceAtLeast(24)
-                    val maxH = (h - startT).coerceAtLeast(20)
-                    val nw = (startW + dx).coerceIn(24, maxW)
-                    val nh = (startH + dy).coerceIn(20, maxH)
+                    val (maxW_, maxH_) = canvasMaxSize(startL, startT)
+                    val nw = (startW + dx).coerceIn(24, maxW_)
+                    val nh = (startH + dy).coerceIn(20, maxH_)
                     hideResizePreview()
                     handle.performClick()
                     if (w > 0 && h > 0) {
