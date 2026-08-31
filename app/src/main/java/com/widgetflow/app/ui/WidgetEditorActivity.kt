@@ -408,6 +408,29 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
+    /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 的 minWidth/minHeight 一致 */
+    private fun actualSizeDp(size: String): Pair<Int, Int> = when (size) {
+        "1x1" -> 40 to 40
+        "1x2" -> 40 to 110
+        "2x1" -> 90 to 40
+        "2x2" -> 140 to 110
+        else -> 250 to 110 // 4x2
+    }
+
+    /**
+     * 编辑画布相对真实桌面尺寸的放大系数：字号/圆角按此放大，
+     * 使编辑预览的视觉比例 = 桌面实际效果 = App 列表预览（三者一致）。
+     */
+    private fun designScale(): Float {
+        val canvas = binding.step4.canvas
+        val w = canvas.width
+        if (w <= 0) return 1f
+        val density = resources.displayMetrics.density
+        val (realW, _) = actualSizeDp(draft.size)
+        if (realW <= 0) return 1f
+        return (w / density) / realW
+    }
+
     /** 某元素的预览文本：取其数据源的 aliasMap */
     private fun elementPreviewMap(el: Element): Map<String, String> {
         val src = SourceStore.find(this, el.sourceId)
@@ -530,13 +553,15 @@ class WidgetEditorActivity : AppCompatActivity() {
     private fun rebuildCanvas() {
         val canvas = binding.step4.canvas
         canvas.removeAllViews()
+        // 画布放大系数：字号/圆角按此同步放大，保证编辑预览与桌面、App 列表预览三者比例一致
+        val scale = designScale()
         if (draft.bgColor.isNotBlank() || draft.cornerRadius >= 0) {
             val color = if (draft.bgColor.isNotBlank()) parseColorSafe(draft.bgColor)
             else getColor(R.color.widget_bg_color)
             val radiusDp = if (draft.cornerRadius >= 0) draft.cornerRadius else 20
             canvas.background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(color)
-                cornerRadius = radiusDp.dp().toFloat()
+                cornerRadius = ((radiusDp * scale).toInt()).dp().toFloat()
             }
         } else {
             canvas.background = getDrawable(R.drawable.widget_bg)
@@ -555,7 +580,7 @@ class WidgetEditorActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             )
             tv.text = renderTemplate(el.template, elementPreviewMap(el), time)
-            tv.textSize = el.fontSize.toFloat()
+            tv.textSize = el.fontSize * scale
             tv.setTypeface(null, el.typefaceStyle())
             tv.setTextColor(parseColorSafe(el.color))
             tv.maxLines = 4

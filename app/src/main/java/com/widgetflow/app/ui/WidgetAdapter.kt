@@ -1,5 +1,7 @@
 package com.widgetflow.app.ui
 
+import android.appwidget.AppWidgetManager
+import android.content.Context
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -73,8 +75,9 @@ class WidgetAdapter(
             val cellW = box.width
             if (cellW <= 0) return@post
             val density = ctx.resources.displayMetrics.density
-            // 该尺寸在桌面上的实际大小（dp），与 widget_info 的 minWidth/minHeight 一致
-            val (wDp, hDp) = actualSizeDp(c.size)
+            // 该尺寸在桌面上的实际大小（dp）：优先读取已放置组件的真实尺寸（含手动缩放），
+            // 否则用 widget_info 的默认 minWidth/minHeight
+            val (wDp, hDp) = actualDesktopSize(ctx, c)
             val wPx = (wDp * density).toInt()
             val hPx = (hDp * density).toInt()
             if (wPx <= 0 || hPx <= 0) return@post
@@ -108,6 +111,21 @@ class WidgetAdapter(
                 box.removeAllViews()
             }
         }
+    }
+
+    /** 已放置到桌面时读取其真实尺寸（dp），否则回退到该尺寸的默认大小 */
+    private fun actualDesktopSize(ctx: Context, c: WidgetConfig): Pair<Int, Int> {
+        for (wid in c.widgetIds) {
+            try {
+                val opts = AppWidgetManager.getInstance(ctx).getAppWidgetOptions(wid)
+                val w = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+                val h = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+                if (w > 0 && h > 0) return w to h
+            } catch (t: Throwable) {
+                // 组件已被移除等情况：忽略并尝试下一个
+            }
+        }
+        return actualSizeDp(c.size)
     }
 
     class VH(val binding: ItemWidgetGridBinding) : RecyclerView.ViewHolder(binding.root)
