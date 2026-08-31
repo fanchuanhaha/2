@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -181,14 +182,15 @@ class WidgetEditorActivity : AppCompatActivity() {
     // ================= 编辑器 =================
 
     private fun setupStep4() {
-        binding.step4.seekFont.max = 9
+        // 字号滑块：3%..20%（小部件宽度的百分比）
+        binding.step4.seekFont.max = 17
         binding.step4.seekFont.setOnSeekBarChangeListener(
             object : android.widget.SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(
                     sb: android.widget.SeekBar?, progress: Int, fromUser: Boolean
                 ) {
-                    val size = 9 + progress
-                    binding.step4.fontValue.text = size.toString()
+                    val size = 3 + progress
+                    binding.step4.fontValue.text = "$size%"
                     if (fromUser && sel in draft.elements.indices) {
                         draft.elements[sel].fontSize = size
                         rebuildCanvas()
@@ -416,36 +418,9 @@ class WidgetEditorActivity : AppCompatActivity() {
         }
     }
 
-    /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 的 minWidth/minHeight 一致 */
-    private fun actualSizeDp(size: String): Pair<Int, Int> = when (size) {
-        "1x1" -> 40 to 40
-        "1x2" -> 40 to 110
-        "2x1" -> 90 to 40
-        "2x2" -> 140 to 110
-        else -> 250 to 110 // 4x2
-    }
-
     /**
-     * 编辑画布相对真实桌面尺寸的放大系数：字号/圆角按此放大，
-     * 使编辑预览的视觉比例 = 桌面实际效果 = App 列表预览（三者一致）。
-     * 使用「预期画布宽度」而非测量宽度，避免布局时序导致的错误。
+     * 画布预期像素尺寸（宽,高），与字号缩放同一套坐标
      */
-    private fun designScale(): Float {
-        val density = resources.displayMetrics.density
-        val (realW, _) = actualSizeDp(draft.size)
-        if (realW <= 0) return 1f
-        if (canvasWdp <= 0f) {
-            // 画布宽度还没确定：按可用宽度估算一次（布局完成后 applyCanvasWidth 会校正并重绘）
-            val wrap = binding.step4.canvas.parent as? FrameLayout
-            val availW = wrap?.width ?: 0
-            if (availW <= 0) return 1f
-            val (w, _) = canvasSizeFor(draft.size, availW)
-            canvasWdp = w / density
-        }
-        return canvasWdp / realW
-    }
-
-    /** 画布预期像素尺寸（宽,高），与字号缩放同一套坐标 */
     private fun canvasPx(): Pair<Int, Int> {
         val density = resources.displayMetrics.density
         return (canvasWdp * density).toInt().coerceAtLeast(1) to
@@ -474,13 +449,13 @@ class WidgetEditorActivity : AppCompatActivity() {
         val first = sources.firstOrNull() ?: return
         draft.elements.clear()
         first.rules.getOrNull(0)?.let {
-            draft.elements.add(Element("『{${it.alias}}』", 13, ink, 6f, 12f, sourceId = first.id))
+            draft.elements.add(Element("『{${it.alias}}』", 6, ink, 6f, 12f, sourceId = first.id))
         }
         first.rules.getOrNull(1)?.let {
-            draft.elements.add(Element("—— {${it.alias}}", 9, muted, 6f, 64f, sourceId = first.id))
+            draft.elements.add(Element("—— {${it.alias}}", 4, muted, 6f, 64f, sourceId = first.id))
         }
         if (draft.elements.isEmpty()) {
-            draft.elements.add(Element("来自「${first.name}」", 13, ink, 6f, 12f, sourceId = first.id))
+            draft.elements.add(Element("来自「${first.name}」", 6, ink, 6f, 12f, sourceId = first.id))
         }
     }
 
@@ -533,7 +508,7 @@ class WidgetEditorActivity : AppCompatActivity() {
             draft.elements.add(
                 Element(
                     template = template,
-                    fontSize = 13,
+                    fontSize = 6,
                     color = ink,
                     x = x, y = y,
                     sourceId = src.id
@@ -580,15 +555,16 @@ class WidgetEditorActivity : AppCompatActivity() {
     private fun rebuildCanvas() {
         val canvas = binding.step4.canvas
         canvas.removeAllViews()
-        // 画布放大系数：字号/圆角按此同步放大，保证编辑预览与桌面、App 列表预览三者比例一致
-        val scale = designScale()
+        // 字号 = 画布宽度的百分比（桌面/列表/编辑三处同规则，比例天然一致）
+        val canvasW = (canvasWdp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
         if (draft.bgColor.isNotBlank() || draft.cornerRadius >= 0) {
             val color = if (draft.bgColor.isNotBlank()) parseColorSafe(draft.bgColor)
             else getColor(R.color.widget_bg_color)
             val radiusDp = if (draft.cornerRadius >= 0) draft.cornerRadius else 20
             canvas.background = android.graphics.drawable.GradientDrawable().apply {
                 setColor(color)
-                cornerRadius = ((radiusDp * scale).toInt()).dp().toFloat()
+                // 圆角为固定 dp，与桌面渲染一致（不随画布放大）
+                cornerRadius = radiusDp.dp().toFloat()
             }
         } else {
             canvas.background = getDrawable(R.drawable.widget_bg)
@@ -607,7 +583,7 @@ class WidgetEditorActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             )
             tv.text = renderTemplate(el.template, elementPreviewMap(el), time)
-            tv.textSize = el.fontSize * scale
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, canvasW * el.fontSize / 100f)
             tv.setTypeface(null, el.typefaceStyle())
             tv.setTextColor(parseColorSafe(el.color))
             tv.maxLines = 4
@@ -905,8 +881,8 @@ class WidgetEditorActivity : AppCompatActivity() {
                 binding.step4.inpTemplate.setText(el.template)
                 suppress = false
             }
-            binding.step4.seekFont.progress = (el.fontSize - 9).coerceIn(0, 9)
-            binding.step4.fontValue.text = el.fontSize.toString()
+            binding.step4.seekFont.progress = (el.fontSize - 3).coerceIn(0, 17)
+            binding.step4.fontValue.text = "${el.fontSize}%"
         }
         for (i in 0 until binding.step4.boxColors.childCount) {
             val v = binding.step4.boxColors.getChildAt(i)

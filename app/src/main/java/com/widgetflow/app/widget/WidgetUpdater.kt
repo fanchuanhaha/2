@@ -198,7 +198,8 @@ object WidgetUpdater {
                 )
             }
             rv.setTextViewText(id, styled)
-            rv.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, el.fontSize.toFloat())
+            // 字号 = 组件宽度的百分比：随组件缩放保持比例一致（与编辑/列表预览同规则）
+            rv.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_PX, wPx * el.fontSize / 100f)
             try {
                 rv.setTextColor(id, Color.parseColor(el.color.ifBlank { defaultInk }))
             } catch (e: IllegalArgumentException) {

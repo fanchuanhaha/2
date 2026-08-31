@@ -131,13 +131,7 @@ class WidgetAdapter(
     class VH(val binding: ItemWidgetGridBinding) : RecyclerView.ViewHolder(binding.root)
 
     companion object {
-        /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 的 minWidth/minHeight 一致 */
-        private fun actualSizeDp(size: String): Pair<Int, Int> = when (size) {
-            "1x1" -> 40 to 40
-            "1x2" -> 40 to 110
-            "2x1" -> 90 to 40
-            "2x2" -> 140 to 110
-            else -> 250 to 110 // 4x2
-        }
+        /** 各尺寸组件在桌面上的实际大小（dp，高宽），与 widget_info 一致 */
+        private fun actualSizeDp(size: String): Pair<Int, Int> = WidgetConfig.realSizeDp(size)
     }
 }

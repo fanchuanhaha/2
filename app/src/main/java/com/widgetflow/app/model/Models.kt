@@ -19,7 +19,8 @@ data class ExtractRule(
 
 data class Element(
     var template: String,
-    var fontSize: Int = 14,
+    /** 字号 = 小部件宽度的百分比（3..20），随组件缩放保持比例一致 */
+    var fontSize: Int = 6,
     var color: String = "#1E1E1E",
     var x: Float = 6f,
     var y: Float = 12f,
@@ -30,7 +31,9 @@ data class Element(
     /** 粗体 */
     var bold: Boolean = false,
     /** 斜体 */
-    var italic: Boolean = false
+    var italic: Boolean = false,
+    /** true = fontSize 为宽度百分比（新版）；false = 旧版 sp 绝对值，读取时需换算 */
+    var fontPct: Boolean = true
 ) {
     /** 是否设置了显式宽高（0 表示自适应内容） */
     fun hasExplicitSize(): Boolean = width > 0f || height > 0f
@@ -193,6 +196,7 @@ data class WidgetConfig(
                     .put("src", e.sourceId)
                     .put("tpl", e.template)
                     .put("size", e.fontSize)
+                    .put("fp", e.fontPct)
                     .put("color", e.color)
                     .put("x", e.x.toDouble())
                     .put("y", e.y.toDouble())
@@ -227,6 +231,15 @@ data class WidgetConfig(
         fun newId(): String =
             "c" + System.currentTimeMillis() + "_" + (1000..9999).random()
 
+        /** 各尺寸在桌面上的实际大小（dp，高宽），与 widget_info 一致 */
+        fun realSizeDp(size: String): Pair<Int, Int> = when (size) {
+            "1x1" -> 40 to 40
+            "1x2" -> 40 to 110
+            "2x1" -> 90 to 40
+            "2x2" -> 140 to 110
+            else -> 250 to 110 // 4x2
+        }
+
         /** 解析小部件包；格式不合法返回 null */
         fun fromJson(text: String): WidgetConfig? {
             return try {
@@ -244,12 +257,19 @@ data class WidgetConfig(
                 c.bgColor = w.optString("bgColor", "")
                 c.cornerRadius = w.optInt("cornerRadius", -1)
                 w.optJSONArray("elements")?.let { els ->
+                    val realW = realSizeDp(c.size).first
                     for (i in 0 until els.length()) {
                         val o = els.optJSONObject(i) ?: continue
+                        val fp = o.optBoolean("fp", false)
+                        var fs = o.optInt("size", if (fp) 6 else 14)
+                        if (!fp) {
+                            // 旧版字号（sp 绝对值）→ 换算为该组件宽度的百分比
+                            fs = (fs * 100f / realW).toInt().coerceIn(3, 20)
+                        }
                         c.elements.add(
                             Element(
                                 o.optString("tpl", ""),
-                                o.optInt("size", 14),
+                                fs,
                                 o.optString("color", "#1E1E1E"),
                                 o.optDouble("x", 6.0).toFloat(),
                                 o.optDouble("y", 12.0).toFloat(),
@@ -257,7 +277,8 @@ data class WidgetConfig(
                                 o.optDouble("h", 0.0).toFloat(),
                                 o.optString("src", ""),
                                 o.optBoolean("bold", false),
-                                o.optBoolean("italic", false)
+                                o.optBoolean("italic", false),
+                                true
                             )
                         )
                     }
